@@ -81,6 +81,8 @@ O cliente permite somente GET de hora do servidor, conta Spot, informações de 
 
 Esses relatórios contêm dados financeiros: ficam locais, ignorados pelo Git, e não são enviados ao Telegram. A consulta não altera `config.json`, `state.json` ou posições na Binance. Sem credenciais configuradas, o comando se recusa a conectar. A integração autenticada precisa ser validada com sua chave de leitura; os testes automatizados usam dados fictícios. O relatório pode ficar desatualizado após movimentações na conta.
 
+O diagnóstico distingue marcadores LD sem par Spot, pares suspensos, ativos sem par direto e falta de cotação. O prefixo LD é um indício para conferir o Earn, não prova da disponibilidade para resgate. Nenhum marcador é convertido em moeda Spot apenas removendo o prefixo. Se não houver capital livre com cotação, `capital_ready` será falso; a consulta não substitui esse saldo por dinheiro fictício nem cria uma carteira aprovada. Para usar recursos do Earn, faça você mesmo o resgate na Binance e gere novamente `python bot.py wallet-preview` após confirmar os saldos livres. O programa não tem endpoints de resgate ou transferência.
+
 Os comandos `run` e `once` compartilham trava exclusiva no Windows, impedindo execução simultânea. Não execute duas validações simultaneamente.
 
 ## Referências oficiais

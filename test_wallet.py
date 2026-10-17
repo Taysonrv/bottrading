@@ -47,6 +47,23 @@ class WalletTests(unittest.TestCase):
         self.assertEqual(result['supported_free_value_usdt'], '700.00')
         self.assertEqual(result['supported_locked_value_usdt'], '1220.00')
         self.assertEqual(result['unpriced_assets'], ['OLD'])
+        self.assertTrue(result['capital_ready'])
+
+    def test_earn_markers_are_never_counted_as_spot_capital(self):
+        account, exchange, tickers = fixtures()
+        account['balances'] = [{'asset': 'LDUSDT', 'free': '100', 'locked': '0'},
+                               {'asset': 'LDBTC', 'free': '0.1', 'locked': '0'}]
+        result = wallet.preview(account, exchange, tickers)
+        self.assertFalse(result['capital_ready'])
+        self.assertEqual(result['paper_usdt_proposal'], '0')
+        self.assertEqual(result['paper_positions_proposal'], {})
+        self.assertEqual(result['category_counts'], {'ld_marker': 2})
+        self.assertIn('Nenhum capital Spot utilizável', wallet.markdown(result))
+
+    def test_locked_usdt_does_not_make_capital_ready(self):
+        account, exchange, tickers = fixtures()
+        account['balances'] = [{'asset': 'USDT', 'free': '0', 'locked': '100'}]
+        self.assertFalse(wallet.preview(account, exchange, tickers)['capital_ready'])
 
     def test_disabled_pair_is_not_in_proposal(self):
         account, exchange, tickers = fixtures()

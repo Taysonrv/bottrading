@@ -86,13 +86,25 @@ def preview(account, exchange, tickers):
                 'bid_usdt': None, 'free_value_usdt': None, 'locked_value_usdt': None}
         if asset == 'USDT':
             bid, supported, reason = Decimal(1), True, 'USDT livre'
+            category = 'spot_usdt'
             free_usdt = free
         else:
             pair = pairs.get(asset)
             ticker = prices.get(pair['symbol']) if pair else None
             bid = number(ticker['bidPrice']) if ticker else Decimal(0)
             supported = bool(pair and pair.get('status') == 'TRADING' and pair.get('isSpotTradingAllowed') is True and bid > 0)
-            reason = 'Par direto Spot/USDT disponível' if supported else 'Sem par Spot/USDT ativo com cotação válida'
+            if supported:
+                category, reason = 'spot_pair', 'Par direto Spot/USDT disponível'
+            elif not pair and asset.startswith('LD'):
+                category, reason = 'ld_marker', 'Marcador LD sem par Spot; verificar posição no Earn'
+            elif not pair:
+                category, reason = 'no_direct_pair', 'Não há par direto em USDT'
+            elif pair.get('status') != 'TRADING':
+                category, reason = 'inactive_pair', 'Par USDT fora de negociação (' + str(pair.get('status')) + ')'
+            elif pair.get('isSpotTradingAllowed') is not True:
+                category, reason = 'spot_disabled', 'Par sem permissão Spot'
+            else:
+                category, reason = 'no_quote', 'Cotação bid indisponível'
             if supported and free > 0:
                 positions[pair['symbol']] = str(free)
                 minimum = Decimal(10)
@@ -106,10 +118,14 @@ def preview(account, exchange, tickers):
             managed += free * bid
             locked_value += locked * bid
         item['reason'] = reason
+        item['category'] = category
         assets.append(item)
     return {'created': dt.datetime.now(dt.timezone.utc).isoformat(), 'mode': 'read_only',
             'assets': assets, 'paper_usdt_proposal': str(free_usdt), 'paper_positions_proposal': positions,
             'supported_free_value_usdt': str(managed), 'supported_locked_value_usdt': str(locked_value),
+            'capital_ready': managed > 0,
+            'category_counts': {category: sum(r['category'] == category for r in assets)
+                                for category in sorted({r['category'] for r in assets})},
             'unpriced_assets': [r['asset'] for r in assets if not r['supported']],
             'note': 'Estimativa parcial pelo bid. Saldos bloqueados e ativos sem par direto ficam fora da proposta. Não garante execução.'}
 
@@ -125,4 +141,8 @@ def markdown(report):
               'Nenhuma ordem enviada; nenhuma configuração ou posição simulada foi alterada.',
               'A proposta em wallet-preview.json serve para revisão. Valores abaixo do mínimo podem permanecer como saldo residual.',
               'Não inclui Earn, futuros ou margem. Estimativas não incluem taxas, slippage nem filtros completos de execução.']
+    if not report.get('capital_ready'):
+        lines += ['', '**Nenhum capital Spot utilizável foi encontrado nesta consulta. Não importar como carteira apta para operar.**',
+                  'Confira saldos aplicados no Earn/Simple Earn e os ativos sem par ativo. Marcadores LD não são convertidos automaticamente em suas moedas correspondentes.',
+                  'Caso decida disponibilizar capital, faça o resgate na Binance e gere uma nova consulta após confirmar o saldo livre na Spot. O bot não resgata, transfere ou vende esses ativos.']
     return '\n'.join(lines) + '\n'
