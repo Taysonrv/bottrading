@@ -69,7 +69,17 @@ No Windows, `./iniciar-observacao.ps1` permite iniciar manualmente o acompanhame
 
 Ainda faltam modelo de liquidez/profundidade, precisão e filtros de cada par, apuração de lucro realizado por operação, monitoramento de quedas do processo e reconciliação. O backtest não dispõe de spread histórico real nem latência; usa slippage configurável. A carteira histórica inicia sem posições, portanto não valida a liquidação das suas posições preexistentes. O histórico de um ano e a comparação de regras são pesquisa preliminar, não comprovação de rentabilidade. Não há treinamento ou otimização de parâmetros.
 
-A integração privada, importação de todos os ativos Spot, filtros de quantidade/notional, recuperação de ordens e operação real não estão implementadas. Não forneça uma chave Binance para este protótipo. A autorização para vender ativos será aplicada somente numa etapa posterior, após revisão da carteira e autorização de ativação real.
+A consulta privada somente leitura está disponível via `python bot.py wallet-preview`; a importação automática para a simulação, filtros completos de execução, recuperação de ordens e operação real não estão implementados. A autorização para vender ativos será aplicada somente numa etapa posterior, após revisão da carteira e autorização de ativação real.
+
+## Consultar sua carteira Spot
+
+Execute `./configurar-binance-leitura.ps1` para informar localmente uma chave HMAC da Binance com somente leitura. Deixe trading e saques desabilitados. O script recebe chave e segredo com digitação oculta e define `BINANCE_API_KEY`/`BINANCE_API_SECRET` apenas no terminal atual, sem salvar credenciais. Se sua chave for RSA/Ed25519, este cliente HMAC não a suporta.
+
+O cliente permite somente GET de hora do servidor, conta Spot, informações de pares e book ticker. Recusa endpoints de ordens e saques e não segue redirecionamentos. O horário é sincronizado com a Binance para assinar a consulta da conta. Mensagens de erro não exibem chaves ou URLs assinadas.
+
+`wallet-preview.md` e `wallet-preview.json` mostram saldos livres/bloqueados e estimativas pelo bid em USDT. A proposta de capital inclui USDT livre e quantidades livres de moedas com par direto Spot/USDT em negociação. Saldos bloqueados, moedas sem cotação e pares suspensos são listados separadamente e não entram na proposta. Não há conversão automática por pares intermediários. Ativos abaixo do mínimo estimado são marcados como possíveis resíduos; não se garante execução.
+
+Esses relatórios contêm dados financeiros: ficam locais, ignorados pelo Git, e não são enviados ao Telegram. A consulta não altera `config.json`, `state.json` ou posições na Binance. Sem credenciais configuradas, o comando se recusa a conectar. A integração autenticada precisa ser validada com sua chave de leitura; os testes automatizados usam dados fictícios. O relatório pode ficar desatualizado após movimentações na conta.
 
 Os comandos `run` e `once` compartilham trava exclusiva no Windows, impedindo execução simultânea. Não execute duas validações simultaneamente.
 

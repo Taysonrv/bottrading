@@ -13,6 +13,7 @@ import urllib.request
 import research
 import observer
 import notifications
+import wallet
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -306,7 +307,7 @@ def review():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['validate', 'once', 'run', 'stop', 'resume', 'review',
-                                             'observe', 'watch', 'status', 'telegram-test'])
+                                             'observe', 'watch', 'status', 'telegram-test', 'wallet-preview'])
     args = parser.parse_args()
     if args.command == 'stop':
         (ROOT / 'STOP').touch()
@@ -323,6 +324,18 @@ def main():
         return
     if args.command == 'status':
         status()
+        return
+    if args.command == 'wallet-preview':
+        try:
+            client = wallet.ReadOnlyClient(os.getenv('BINANCE_API_KEY'), os.getenv('BINANCE_API_SECRET'))
+            report = wallet.preview(client.get('/api/v3/account'), client.get('/api/v3/exchangeInfo'),
+                                    client.get('/api/v3/ticker/bookTicker'))
+            with runtime_lock():
+                save(ROOT / 'wallet-preview.json', report)
+                (ROOT / 'wallet-preview.md').write_text(wallet.markdown(report), encoding='utf-8')
+            print('Consulta concluída. Revise wallet-preview.md localmente. Nenhuma ordem enviada.')
+        except wallet.WalletError as error:
+            raise SystemExit(str(error)) from None
         return
     config = read(ROOT / 'config.json')
     config_check(config)

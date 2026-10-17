@@ -54,4 +54,12 @@ python bot.py watch
 
 É necessário criar previamente um bot no BotFather e obter o chat ID da sua conversa. O script envia uma mensagem de teste ao chat informado. Nenhuma credencial é salva. Se a política do PowerShell bloquear o script, não altere a política automaticamente: use a configuração de ambiente aprovada no seu computador.
 
+Para consultar sua carteira Binance Spot:
+
+```powershell
+.\configurar-binance-leitura.ps1
+```
+
+Use chave HMAC com **somente leitura**, informada localmente com digitação oculta. Não envie credenciais no chat. O script chama `python bot.py wallet-preview` e gera `wallet-preview.md`/`.json`, ignorados pelo Git. O relatório mostra saldo livre, bloqueado e ativos sem par direto USDT. Não importa saldos automaticamente para a simulação e não envia ordens.
+
 As ordens permanecem simuladas. Uma validação reprovada bloqueia operações.

@@ -15,4 +15,6 @@ observation-state.json
 observation-report.md
 notifications-state.json
 *.log
+wallet-*.json
+wallet-*.md
 *.tmp
