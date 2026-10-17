@@ -18,4 +18,6 @@ notifications-state.json
 *.log
 wallet-*.json
 wallet-*.md
+performance-report.md
+observation-archive/
 *.tmp

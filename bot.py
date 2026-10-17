@@ -14,6 +14,7 @@ import research
 import observer
 import notifications
 import wallet
+import accounting
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -131,6 +132,7 @@ def signal(prices):
 def fingerprint(config):
     return hashlib.sha256((Path(__file__).read_text(encoding='utf-8') +
                            Path(research.__file__).read_text(encoding='utf-8') +
+                           Path(accounting.__file__).read_text(encoding='utf-8') +
                            json.dumps(config, sort_keys=True)).encode()).hexdigest()
 
 
@@ -205,10 +207,12 @@ def cycle(config):
         raise ValueError('Há posição fora dos pares configurados; revise antes de continuar')
     quotes = {s: quote(s) for s in config['symbols']}
     prices = {s: q['bid'] for s, q in quotes.items()}
+    accounting.initialize(state, prices)
     equity = state['cash'] + sum(q * prices[s] for s, q in state['positions'].items())
     try:
         guard(state, equity)
     except ValueError:
+        accounting.mark(state, prices, config['fee_rate'], config['slippage_rate'])
         save(state_path, state)
         raise
     report_path = ROOT / 'validation.json'
@@ -243,11 +247,17 @@ def cycle(config):
             reference = quotes[symbol]['ask'] if delta > 0 else quotes[symbol]['bid']
             state['cash'], state['positions'][symbol], order = research.fill(
                 state['cash'], units, reference, delta, config['fee_rate'], config['slippage_rate'])
+            if order:
+                order['realized_pnl'] = accounting.record(state, symbol, units, order)
             state['last'][symbol] = stamp
             save(state_path, state)
             if order:
                 event('paper_order', symbol=symbol, regime=regime, **order)
         state['last'][symbol] = stamp
+    equity = state['cash'] + sum(q * prices[s] for s, q in state['positions'].items())
+    state['peak'] = max(state['peak'], equity)
+    state['halted'] = state['halted'] or equity <= state['peak'] * .85
+    accounting.mark(state, prices, config['fee_rate'], config['slippage_rate'])
     save(state_path, state)
     event('cycle', equity=state['cash'] + sum(q * prices[s] for s, q in state['positions'].items()),
           cash=state['cash'], positions=state['positions'], peak=state['peak'])
@@ -289,6 +299,29 @@ def status():
           'note': 'Estado salvo; não confirma que há um processo rodando.'}, ensure_ascii=False, indent=2))
 
 
+def performance():
+    path = ROOT / 'state.json'
+    state = read(path) if path.exists() else {}
+    report = state.get('performance')
+    (ROOT / 'performance-report.md').write_text(accounting.markdown(report), encoding='utf-8')
+    print('Relatório salvo em performance-report.md (última medição, sem consultar a Binance).')
+
+
+def archive_observation():
+    with runtime_lock():
+        files = [ROOT / name for name in ('observation-state.json', 'observation-report.md')]
+        if not any(path.exists() for path in files):
+            print('Nenhuma sessão de observação para arquivar.')
+            return
+        import uuid
+        destination = ROOT / 'observation-archive' / uuid.uuid4().hex
+        destination.mkdir(parents=True)
+        for path in files:
+            if path.exists():
+                path.replace(destination / path.name)
+        print('Sessão preservada em observation-archive. A próxima observação inicia uma sessão nova.')
+
+
 def review():
     entries = []
     path = ROOT / 'events.jsonl'
@@ -318,7 +351,7 @@ def review():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['validate', 'once', 'run', 'stop', 'resume', 'review',
-                                             'observe', 'watch', 'status', 'telegram-test', 'wallet-preview'])
+                                             'observe', 'watch', 'status', 'telegram-test', 'wallet-preview', 'performance', 'observation-archive'])
     args = parser.parse_args()
     if args.command == 'stop':
         (ROOT / 'STOP').touch()
@@ -335,6 +368,12 @@ def main():
         return
     if args.command == 'status':
         status()
+        return
+    if args.command == 'performance':
+        performance()
+        return
+    if args.command == 'observation-archive':
+        archive_observation()
         return
     if args.command == 'wallet-preview':
         try:

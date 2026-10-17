@@ -17,6 +17,18 @@ def market(stamp, price=100):
 
 
 class ObserverTests(unittest.TestCase):
+    def test_archive_preserves_session_and_does_not_touch_wallet(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(bot, 'ROOT', Path(folder)):
+            root = Path(folder)
+            (root / 'observation-state.json').write_text('{"version":"old"}', encoding='utf-8')
+            (root / 'state.json').write_text('{"cash":100}', encoding='utf-8')
+            bot.archive_observation()
+            archived = list((root / 'observation-archive').glob('*/observation-state.json'))
+            self.assertEqual(len(archived), 1)
+            self.assertEqual(archived[0].read_text(encoding='utf-8'), '{"version":"old"}')
+            self.assertFalse((root / 'observation-state.json').exists())
+            self.assertEqual((root / 'state.json').read_text(encoding='utf-8'), '{"cash":100}')
+
     def test_first_sample_has_no_future_result(self):
         state, changed = observer.advance(None, *market(3600000), 'v1', 10000)
         self.assertTrue(changed)

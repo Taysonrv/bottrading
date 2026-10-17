@@ -8,9 +8,11 @@ def message(item):
     kind = item['kind']
     prefix = '[SIMULAÇÃO] '
     if kind == 'paper_order':
+        pnl = item.get('realized_pnl')
+        result = '' if pnl is None else f'\nResultado realizado líquido: {pnl:.4f} USDT'
         return (prefix + f"{'Compra' if item['side'] == 'BUY' else 'Venda'} de {item['symbol']}\n"
                 f"Quantidade: {item['quantity']:.8f}\nPreço: {item['price']:.4f} USDT\n"
-                f"Taxa: {item['fee']:.4f} USDT\nRegime: {item['regime']}")
+                f"Taxa: {item['fee']:.4f} USDT\nRegime: {item['regime']}" + result)
     if kind == 'blocked':
         return prefix + f"Operações bloqueadas em {item['symbol']}: {item['reason']}"
     if kind == 'observation':

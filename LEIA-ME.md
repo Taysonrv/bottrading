@@ -85,6 +85,14 @@ O diagnóstico distingue marcadores LD sem par Spot, pares suspensos, ativos sem
 
 Os comandos `run` e `once` compartilham trava exclusiva no Windows, impedindo execução simultânea. Não execute duas validações simultaneamente.
 
+## Contabilidade da simulação
+
+`python bot.py performance` gera `performance-report.md` a partir da última medição salva, sem rede. Execute um ciclo para atualizar a medição. A contabilidade usa custo médio e inclui taxas na compra e na venda. Slippage já afeta preços e não é subtraído duas vezes. O resultado não realizado considera custos estimados de venda das posições restantes, sem criar ordens de encerramento.
+
+Para posições já existentes ou arquivos antigos sem contabilidade, a primeira medição usa o bid como valor inicial. Não representa preço histórico de compra nem reconstrói operações anteriores à migração. O maior patrimônio e a trava de drawdown são preservados. Inconsistência entre caixa, posições e resultados bloqueia a execução; não edite os saldos manualmente depois de iniciar a medição. O relatório distingue custos pagos de estimativas de liquidação.
+
+Ao atualizar o código durante uma observação, encerre o processo com `python bot.py stop`. Aguarde o término, execute `python bot.py observation-archive` para preservar a sessão anterior, depois `python bot.py resume` e `python bot.py watch`. O arquivo da carteira simulada não é reiniciado. A sessão arquivada fica local, fora do Git. A aprovação histórica anterior também expira após mudanças de código.
+
 ## Referências oficiais
 
 - [Binance Spot: documentação](https://github.com/binance/binance-spot-api-docs)

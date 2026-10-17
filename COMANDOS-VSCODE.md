@@ -63,3 +63,23 @@ Para consultar sua carteira Binance Spot:
 Use chave HMAC com **somente leitura**, informada localmente com digitação oculta. Não envie credenciais no chat. O script chama `python bot.py wallet-preview` e gera `wallet-preview.md`/`.json`, ignorados pelo Git. O relatório mostra saldo livre, bloqueado e ativos sem par direto USDT. Não importa saldos automaticamente para a simulação e não envia ordens.
 
 As ordens permanecem simuladas. Uma validação reprovada bloqueia operações.
+
+Para gerar o relatório de desempenho da última medição:
+
+```powershell
+python bot.py performance
+```
+
+Abra `performance-report.md`. O comando não consulta preços novos nem inicia operações.
+
+Após atualizar o código, encerre o acompanhamento com `python bot.py stop` e aguarde o processo terminar. Preserve a sessão anterior e reinicie assim:
+
+```powershell
+python bot.py observation-archive
+python bot.py resume
+python bot.py once
+python bot.py performance
+python bot.py watch
+```
+
+Arquivar a observação não apaga nem reinicia a carteira simulada. A validação anterior fica inválida após alterações no código, e operações permanecem bloqueadas até uma nova aprovação.
