@@ -10,8 +10,26 @@ import statistics
 import time
 import urllib.parse
 import urllib.request
+import research
+from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
+
+
+@contextmanager
+def runtime_lock():
+    """Windows process lock shared by once and run."""
+    import msvcrt
+    with (ROOT / 'runtime.lock').open('a+b') as lock:
+        lock.write(b'0')
+        lock.flush()
+        lock.seek(0)
+        msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        try:
+            yield
+        finally:
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def read(path):
@@ -61,7 +79,8 @@ def candles(symbol, count=1000):
     query = urllib.parse.urlencode({'symbol': symbol, 'interval': '1h', 'limit': count})
     rows = request('https://data-api.binance.vision/api/v3/klines?' + query)
     current = time.time() * 1000
-    closed = [{'time': int(r[6]), 'close': float(r[4])} for r in rows if r[6] < current]
+    closed = [{'time': int(r[6]), 'close': float(r[4]), 'open_time': int(r[0]),
+               'open': float(r[1]), 'high': float(r[2]), 'low': float(r[3])} for r in rows if r[6] < current]
     if len(closed) < 240 or current - closed[-1]['time'] > 90 * 60 * 1000:
         raise ValueError('Histórico insuficiente ou atrasado')
     if any(b['time'] - a['time'] != 3600000 for a, b in zip(closed, closed[1:])):
@@ -87,62 +106,37 @@ def signal(prices):
     return 'tranquilo', 1.0 if prices[-1] > fast > slow else 0.0
 
 
-def replay(prices, start, end, cost, allocation):
-    cash, units, peak, worst, trades = 1.0, 0.0, 1.0, 0.0, 0
-    halted = False
-    # Signal uses only previous closes; execution at the following close.
-    for i in range(start, end):
-        price = prices[i]
-        equity = cash + units * price
-        peak = max(peak, equity)
-        worst = max(worst, 1 - equity / peak)
-        if worst >= 0.15:
-            halted = True
-        target = signal(prices[:i])[1] * allocation if not halted else None
-        if target is not None:
-            delta = equity * target - units * price
-            if abs(delta) > 0.005 * equity:
-                if delta > 0:
-                    spend = min(delta, cash / (1 + cost))
-                    cash -= spend * (1 + cost)
-                    units += spend / price
-                else:
-                    amount = min(-delta / price, units)
-                    cash += amount * price * (1 - cost)
-                    units -= amount
-                trades += 1
-    equity = cash + units * prices[end - 1]
-    worst = max(worst, 1 - equity / peak)
-    benchmark = prices[end - 1] / prices[start] - 1
-    return {'return': equity - 1, 'benchmark': benchmark, 'drawdown': worst,
-            'trades': trades, 'passed': equity - 1 > max(0, benchmark) and worst < 0.15 and trades >= 3}
-
-
 def fingerprint(config):
     return hashlib.sha256((Path(__file__).read_text(encoding='utf-8') +
+                           Path(research.__file__).read_text(encoding='utf-8') +
                            json.dumps(config, sort_keys=True)).encode()).hexdigest()
 
 
 def validate(config):
-    results = {}
-    cost = config['fee_rate'] + config['slippage_rate']
+    histories = {}
     for symbol in config['symbols']:
-        rows = candles(symbol)
-        prices = [r['close'] for r in rows]
-        width = (len(prices) - 200) // 3
-        folds = [replay(prices, 200 + n * width, 200 + (n + 1) * width,
-                        cost, config['max_symbol_fraction']) for n in range(3)]
-        results[symbol] = {'folds': folds, 'passed': all(f['passed'] for f in folds),
-                           'first_candle': rows[0]['time'], 'last_candle': rows[-1]['time']}
-    report = {'created': time.time(), 'fingerprint': fingerprint(config), 'results': results,
-              'warning': 'Triagem curta em candles horários; não comprova rentabilidade futura.'}
+        print(f'Baixando {config["history_days"]} dias de {symbol}...', flush=True)
+        histories[symbol] = research.download(symbol, config['history_days'], request)
+    comparisons = research.evaluate(histories, config, signal)
+    active = comparisons[config['strategy']]
+    report = {'created': time.time(), 'fingerprint': fingerprint(config),
+              'active_strategy': config['strategy'], 'comparisons': comparisons,
+              'results': active['symbols'], 'portfolio_passed': active['passed'],
+              'history_days': config['history_days'],
+              'warning': 'Pesquisa com regras fixas; não comprova rentabilidade futura.'}
     save(ROOT / 'validation.json', report)
-    event('validation', results=results)
+    (ROOT / 'research-report.md').write_text(research.markdown(report), encoding='utf-8')
+    event('validation', strategy=config['strategy'], portfolio_passed=active['passed'],
+          comparisons={s: r['passed'] for s, r in comparisons.items()})
 
 
 def config_check(config):
     if config.get('mode') != 'paper':
         raise ValueError('Somente modo paper implementado')
+    if config.get('strategy') not in research.STRATEGIES:
+        raise ValueError('Estratégia inválida')
+    if type(config.get('history_days')) is not int or not 180 <= config['history_days'] <= 1095:
+        raise ValueError('Histórico precisa ter entre 180 e 1095 dias')
     if not config['symbols'] or any(not s.endswith('USDT') or not s.isalnum() for s in config['symbols']):
         raise ValueError('Use pares Spot cotados em USDT')
     if len(set(config['symbols'])) != len(config['symbols']):
@@ -152,6 +146,10 @@ def config_check(config):
             raise ValueError('Limite inválido: ' + key)
     if any(not math.isfinite(config[k]) or config[k] < 0 for k in ['fee_rate', 'slippage_rate', 'paper_usdt']):
         raise ValueError('Custos ou saldo inválidos')
+    if config['paper_usdt'] <= 0 and not any(config['paper_positions'].values()):
+        raise ValueError('Carteira inicial vazia')
+    if config['fee_rate'] >= .1 or config['slippage_rate'] >= .1:
+        raise ValueError('Custos fora do intervalo permitido')
     if any(s not in config['symbols'] or not math.isfinite(q) or q < 0 for s, q in config['paper_positions'].items()):
         raise ValueError('Posições iniciais inválidas')
 
@@ -166,13 +164,25 @@ def guard(state, equity):
         raise ValueError('Proteção de drawdown travada; exige revisão manual')
 
 
+def quote(symbol):
+    row = request('https://data-api.binance.vision/api/v3/ticker/bookTicker?' +
+                  urllib.parse.urlencode({'symbol': symbol}))
+    bid, ask = float(row['bidPrice']), float(row['askPrice'])
+    if not all(math.isfinite(p) and p > 0 for p in (bid, ask)) or bid > ask:
+        raise ValueError('Cotação inválida')
+    return {'bid': bid, 'ask': ask}
+
+
 def cycle(config):
     state_path = ROOT / 'state.json'
     state = read(state_path) if state_path.exists() else {
         'cash': config['paper_usdt'], 'positions': config['paper_positions'].copy(),
         'peak': 0, 'halted': False, 'last': {}}
     history = {s: candles(s, 300) for s in config['symbols']}
-    prices = {s: rows[-1]['close'] for s, rows in history.items()}
+    if any(s not in config['symbols'] for s in state['positions']):
+        raise ValueError('Há posição fora dos pares configurados; revise antes de continuar')
+    quotes = {s: quote(s) for s in config['symbols']}
+    prices = {s: q['bid'] for s, q in quotes.items()}
     equity = state['cash'] + sum(q * prices[s] for s, q in state['positions'].items())
     try:
         guard(state, equity)
@@ -187,11 +197,13 @@ def cycle(config):
         stamp = str(rows[-1]['time'])
         if state['last'].get(symbol) == stamp:
             continue
-        regime, target = signal([r['close'] for r in rows])
-        passed = valid and report.get('results', {}).get(symbol, {}).get('passed', False)
+        regime, target = research.target([r['close'] for r in rows][-200:], config['strategy'], signal)
+        passed = valid and report.get('portfolio_passed', False) and report.get('results', {}).get(symbol, {}).get('passed', False)
         if not passed:
             event('blocked', symbol=symbol, reason='Validação ausente, reprovada ou vencida')
             continue
+        quotes[symbol] = quote(symbol)
+        prices[symbol] = quotes[symbol]['bid']
         price = prices[symbol]
         units = state['positions'].get(symbol, 0)
         equity = state['cash'] + sum(q * prices[s] for s, q in state['positions'].items())
@@ -200,22 +212,19 @@ def cycle(config):
         exposure = sum(q * prices[s] for s, q in state['positions'].items())
         if delta > 0:
             delta = min(delta, max(0, equity * config['max_total_fraction'] - exposure))
-        cost = config['fee_rate'] + config['slippage_rate']
         if abs(delta) >= 10:
-            guard(state, equity)  # Checked immediately before EACH simulated order.
-            if delta > 0:
-                value = min(delta, state['cash'] / (1 + cost))
-                change = value / price
-                state['cash'] -= value * (1 + cost)
-            else:
-                change = -min(units, -delta / price)
-                value = -change * price
-                state['cash'] += value * (1 - cost)
-            state['positions'][symbol] = units + change
+            try:
+                guard(state, equity)  # Checked immediately before EACH simulated order.
+            except ValueError:
+                save(state_path, state)
+                raise
+            reference = quotes[symbol]['ask'] if delta > 0 else quotes[symbol]['bid']
+            state['cash'], state['positions'][symbol], order = research.fill(
+                state['cash'], units, reference, delta, config['fee_rate'], config['slippage_rate'])
             state['last'][symbol] = stamp
             save(state_path, state)
-            event('paper_order', symbol=symbol, side='BUY' if change > 0 else 'SELL',
-                  quantity=abs(change), price=price, regime=regime, costs=value * cost)
+            if order:
+                event('paper_order', symbol=symbol, regime=regime, **order)
         state['last'][symbol] = stamp
     save(state_path, state)
     event('cycle', equity=state['cash'] + sum(q * prices[s] for s, q in state['positions'].items()),
@@ -230,8 +239,17 @@ def review():
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
     entries = [e for e in entries if dt.datetime.fromisoformat(e['time']) >= cutoff]
     counts = {kind: sum(e['kind'] == kind for e in entries) for kind in {e['kind'] for e in entries}}
+    validation_path = ROOT / 'validation.json'
+    validation = read(validation_path) if validation_path.exists() else {}
+    comparisons = validation.get('comparisons', {})
+    proposals = []
+    for strategy, result in comparisons.items():
+        failures = [s for s, r in result['symbols'].items() if not r['passed']]
+        proposals.append({'strategy': strategy, 'passed': result['passed'], 'failed_symbols': failures,
+                          'action': 'Revisão humana necessária; não aplicar automaticamente'})
     save(ROOT / 'night-review.json', {'created': now(), 'counts': counts,
-         'proposals': ['Revisar bloqueios e comparar estratégias em histórico mais longo.'],
+         'validation_created': validation.get('created'),
+         'proposals': proposals or ['Executar validação histórica para obter comparações.'],
          'status': 'Somente relatório. Nenhum parâmetro ou código foi alterado.'})
     event('review', counts=counts)
 
@@ -255,16 +273,10 @@ def main():
     elif args.command == 'review':
         review()
     elif args.command == 'once':
-        cycle(config)
+        with runtime_lock():
+            cycle(config)
     else:
-        # Exclusive OS lock is released automatically on process exit.
-        import msvcrt
-        with (ROOT / 'runtime.lock').open('a+b') as lock:
-            lock.seek(0)
-            lock.write(b'0')
-            lock.flush()
-            lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        with runtime_lock():
             last_review = None
             event('started', mode='paper')
             while not (ROOT / 'STOP').exists():

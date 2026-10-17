@@ -1,5 +1,7 @@
 {
   "mode": "paper",
+  "strategy": "regime_v1",
+  "history_days": 365,
   "symbols": ["BTCUSDT", "ETHUSDT"],
   "paper_usdt": 1000,
   "paper_positions": {},

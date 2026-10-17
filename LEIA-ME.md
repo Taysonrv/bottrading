@@ -13,9 +13,15 @@ python bot.py once
 python bot.py run
 ```
 
-`validate` consulta até 1.000 candles horários fechados por par e testa regras fixas em três janelas cronológicas, depois do aquecimento. O benchmark é comprar e manter o respectivo ativo. Cada janela deve superar o benchmark e zero, ter pelo menos três operações e drawdown inferior a 15%. Taxas e slippage são estimados, configuráveis. A aprovação expira em 24 horas e qualquer alteração no código/configuração a invalida. Reexecute a validação manualmente; o bot não flexibiliza os critérios quando reprovado.
+`validate` baixa por paginação 365 dias de candles horários fechados por par (configurável entre 180 e 1095 dias). Rejeita lacunas, dados incompletos e preços inválidos. Compara três regras fixas: `regime_v1` (original), `trend_v1` (tendência por médias) e `breakout_v1` (proximidade de máxima anterior em tendência de alta). Não ajusta parâmetros nem escolhe uma estratégia automaticamente.
 
-`run` verifica o mercado a cada minuto e decide apenas uma vez por candle fechado. O computador precisa permanecer ligado, com internet e processo aberto. Nenhum serviço ou tarefa agendada foi instalado.
+Após 200 candles de aquecimento, os primeiros 75% são divididos em três janelas; os 25% finais ficam separados para avaliação. Também testa o período final com taxas e slippage dobrados. Todos os períodos começam com 1.000 USDT fictícios e sem posições. O benchmark principal é comprar e manter com 100% do capital (pesos iguais na carteira); o JSON também mostra um benchmark proporcional à exposição permitida. Cada janela deve superar o benchmark e zero, ter pelo menos três operações e drawdown inferior a 15%. A aprovação exige passar individualmente e na carteira conjunta, incluindo o cenário de custos dobrados.
+
+O backtest usa sinais do fechamento anterior e execução na abertura seguinte. Aplica os mesmos limites de exposição e tamanho de ordem da simulação. Verifica também uma estimativa conservadora de perda pelas mínimas horárias simultâneas. Taxas são debitadas do caixa; slippage altera o preço de execução. Posições restantes são avaliadas pelo valor líquido estimado de venda ao final. O mínimo genérico de 10 USDT não substitui filtros reais da exchange.
+
+O resultado está em `research-report.md` e o detalhamento em `validation.json`. A estratégia ativa permanece definida em `config.json`; nenhuma comparação altera essa configuração. A aprovação expira em 24 horas e alterações no código/configuração a invalidam. Reexecute a validação manualmente. Reutilizar o período final para ajustar regras exige um novo período futuro para confirmação independente.
+
+`run` verifica o mercado a cada minuto e decide apenas uma vez por candle fechado. O sinal usa candles fechados, mas a execução simulada consulta o bid/ask atual: compra no ask e vende no bid, mais slippage estimado. O computador precisa permanecer ligado, com internet e processo aberto. Nenhum serviço ou tarefa agendada foi instalado.
 
 ## Desligar
 
@@ -41,17 +47,17 @@ São enviados eventos de início/fim, ordens simuladas, bloqueios, validação, 
 
 ## Revisão e arquivos
 
-`python bot.py review` resume eventos das últimas 24 horas em `night-review.json`. No processo contínuo, há uma revisão na primeira execução de cada dia no fuso UTC-3. Este é um resumo básico, com sugestão genérica de investigação; ainda não otimiza estratégias nem produz melhorias testadas. Nunca modifica código ou parâmetros sozinho.
+`python bot.py review` resume eventos das últimas 24 horas em `night-review.json` e mostra quais estratégias/ativos reprovaram na última comparação. No processo contínuo, há uma revisão na primeira execução de cada dia no fuso UTC-3. Não baixa dados nem executa novas pesquisas automaticamente. Ainda não gera alterações de código; nunca modifica parâmetros sozinho.
 
 `events.jsonl`: diário; `state.json`: carteira simulada e maior patrimônio; `validation.json`: resultados por janela; `STOP`: trava local.
 
 ## Limitações e próximos passos
 
-O backtest curto serve apenas como triagem. Ainda faltam histórico de anos, modelo de liquidez, cotações executáveis em tempo real, apuração de lucro por operação, comparação de carteira completa, monitoramento de quedas do processo e reconciliação. A execução simulada usa o último fechamento conhecido, enquanto o backtest usa o fechamento seguinte ao sinal; ambos precisam ser substituídos por um modelo de execução mais realista antes de concluir sobre desempenho. Não há seleção/ajuste de parâmetros por treinamento, apenas teste de regras fixas em janelas sucessivas.
+Ainda faltam modelo de liquidez/profundidade, precisão e filtros de cada par, apuração de lucro realizado por operação, monitoramento de quedas do processo e reconciliação. O backtest não dispõe de spread histórico real nem latência; usa slippage configurável. A carteira histórica inicia sem posições, portanto não valida a liquidação das suas posições preexistentes. O histórico de um ano e a comparação de regras são pesquisa preliminar, não comprovação de rentabilidade. Não há treinamento ou otimização de parâmetros.
 
 A integração privada, importação de todos os ativos Spot, filtros de quantidade/notional, recuperação de ordens e operação real não estão implementadas. Não forneça uma chave Binance para este protótipo. A autorização para vender ativos será aplicada somente numa etapa posterior, após revisão da carteira e autorização de ativação real.
 
-Execute somente um processo que modifica estado por vez. O comando `run` usa trava exclusiva no Windows; não execute `once` simultaneamente.
+Os comandos `run` e `once` compartilham trava exclusiva no Windows, impedindo execução simultânea. Não execute duas validações simultaneamente.
 
 ## Referências oficiais
 
