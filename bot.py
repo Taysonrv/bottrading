@@ -1,4 +1,4 @@
-"""Binance Spot paper trader. No private Binance endpoints or real orders."""
+"""Binance Spot paper trader with read-only account previews. No real orders."""
 import argparse
 import datetime as dt
 import hashlib
@@ -20,19 +20,30 @@ ROOT = Path(__file__).resolve().parent
 
 
 @contextmanager
-def runtime_lock():
-    """Windows process lock shared by once and run."""
+def runtime_lock(name='runtime.lock'):
+    """Wallet reports have a separate lock from the trading/observer process."""
     import msvcrt
-    with (ROOT / 'runtime.lock').open('a+b') as lock:
-        lock.write(b'0')
-        lock.flush()
+    if name not in ('runtime.lock', 'wallet-preview.lock'):
+        raise ValueError('Nome de trava inválido')
+    with (ROOT / name).open('a+b') as lock:
+        lock.seek(0, 2)
+        if lock.tell() == 0:
+            lock.write(b'0')
+            lock.flush()
         lock.seek(0)
-        msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        try:
+            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        except PermissionError:
+            raise LockBusy('Já existe um processo usando esta função. Aguarde ou desligue o processo correspondente; não apague a trava.') from None
         try:
             yield
         finally:
             lock.seek(0)
             msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+class LockBusy(RuntimeError):
+    pass
 
 
 def read(path):
@@ -327,10 +338,10 @@ def main():
         return
     if args.command == 'wallet-preview':
         try:
-            client = wallet.ReadOnlyClient(os.getenv('BINANCE_API_KEY'), os.getenv('BINANCE_API_SECRET'))
-            report = wallet.preview(client.get('/api/v3/account'), client.get('/api/v3/exchangeInfo'),
-                                    client.get('/api/v3/ticker/bookTicker'))
-            with runtime_lock():
+            with runtime_lock('wallet-preview.lock'):
+                client = wallet.ReadOnlyClient(os.getenv('BINANCE_API_KEY'), os.getenv('BINANCE_API_SECRET'))
+                report = wallet.preview(client.get('/api/v3/account'), client.get('/api/v3/exchangeInfo'),
+                                        client.get('/api/v3/ticker/bookTicker'))
                 save(ROOT / 'wallet-preview.json', report)
                 (ROOT / 'wallet-preview.md').write_text(wallet.markdown(report), encoding='utf-8')
             print('Consulta concluída. Revise wallet-preview.md localmente. Nenhuma ordem enviada.')
@@ -367,4 +378,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except LockBusy as error:
+        raise SystemExit(str(error)) from None

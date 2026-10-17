@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 Write-Host 'Use uma chave HMAC da Binance somente com leitura. Não habilite trading ou saques para esta etapa.'
 foreach ($credentialName in @('BINANCE_API_KEY', 'BINANCE_API_SECRET')) {

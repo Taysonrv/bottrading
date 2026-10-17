@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'STOP')) {
     throw 'STOP está acionado. Revise o motivo antes de usar python bot.py resume.'
 }

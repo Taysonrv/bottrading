@@ -2,10 +2,13 @@ import hashlib
 import hmac
 import io
 import unittest
+import tempfile
+from pathlib import Path
 import urllib.error
 import urllib.parse
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import wallet
+import bot
 
 
 def fixtures():
@@ -20,6 +23,23 @@ def fixtures():
 
 
 class WalletTests(unittest.TestCase):
+    def test_preview_saves_while_observer_holds_runtime_lock(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(bot, 'ROOT', Path(folder)):
+            fake_client = Mock()
+            fake_client.get.side_effect = list(fixtures())
+            with bot.runtime_lock(), patch.object(wallet, 'ReadOnlyClient', return_value=fake_client), patch('sys.argv', ['bot.py', 'wallet-preview']):
+                bot.main()
+            self.assertTrue((Path(folder) / 'wallet-preview.json').exists())
+            self.assertTrue((Path(folder) / 'wallet-preview.md').exists())
+            self.assertFalse((Path(folder) / 'state.json').exists())
+
+    def test_two_wallet_queries_cannot_write_simultaneously(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(bot, 'ROOT', Path(folder)):
+            with bot.runtime_lock('wallet-preview.lock'):
+                with self.assertRaises(bot.LockBusy):
+                    with bot.runtime_lock('wallet-preview.lock'):
+                        self.fail('Concurrent wallet writers allowed')
+
     def test_locked_balances_never_enter_proposal(self):
         result = wallet.preview(*fixtures())
         self.assertEqual(result['paper_usdt_proposal'], '100')
