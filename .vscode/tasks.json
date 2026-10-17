@@ -1,6 +1,7 @@
 {
   "version": "2.0.0",
   "tasks": [
+    {"label": "Bot: abrir servidor do painel local", "type": "process", "command": "python", "args": ["dashboard.py"], "problemMatcher": []},
     {"label": "Bot: consultar carteira Spot (somente leitura)", "type": "process", "command": "python", "args": ["bot.py", "wallet-preview"], "problemMatcher": []},
     {"label": "Bot: observar um candle sem ordens", "type": "process", "command": "python", "args": ["bot.py", "observe"], "problemMatcher": []},
     {"label": "Bot: acompanhar sinais futuros", "type": "process", "command": "python", "args": ["bot.py", "watch"], "problemMatcher": []},

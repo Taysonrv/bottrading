@@ -20,4 +20,5 @@ wallet-*.json
 wallet-*.md
 performance-report.md
 observation-archive/
+heartbeat.json
 *.tmp

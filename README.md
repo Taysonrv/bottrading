@@ -1,5 +1,9 @@
 # Binance Spot Bot
 
+**Interface para computador e celular:** execute `python dashboard.py` e siga [PAINEL.md](PAINEL.md). O painel local mostra os relatórios e permite acionar STOP com login. Não habilita operações reais.
+
+[Prévia no computador](docs/panel-desktop.png) · [Prévia no celular](docs/panel-mobile.png)
+
 Protótipo em Python para simulação de estratégias Binance Spot. Não envia ordens reais nem acessa a carteira Binance.
 
 Inclui regimes de mercado, bloqueio de drawdown, desligamento local, validação cronológica e notificações Telegram opcionais. A pesquisa compara três regras fixas em um ano de dados, com período final separado, carteira conjunta e custos dobrados. A simulação usa bid/ask atual; o backtest executa na abertura seguinte ao sinal.

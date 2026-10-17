@@ -403,6 +403,7 @@ def main():
             last_review = None
             event('started', mode='paper', command=args.command)
             while not (ROOT / 'STOP').exists():
+                save(ROOT / 'heartbeat.json', {'time': time.time(), 'pid': os.getpid(), 'command': args.command, 'phase': 'working'})
                 try:
                     (observe if args.command == 'watch' else cycle)(config)
                     day = dt.datetime.now(dt.timezone(dt.timedelta(hours=-3))).date().isoformat()
@@ -411,11 +412,13 @@ def main():
                         last_review = day
                 except Exception as error:
                     event('error', error_type=type(error).__name__, message='Ciclo bloqueado; confira conexão, estado e validação.')
+                save(ROOT / 'heartbeat.json', {'time': time.time(), 'pid': os.getpid(), 'command': args.command, 'phase': 'waiting'})
                 for _ in range(60):
                     if (ROOT / 'STOP').exists():
                         break
                     time.sleep(1)
             event('stopped', mode='paper')
+            save(ROOT / 'heartbeat.json', {'time': time.time(), 'pid': os.getpid(), 'command': args.command, 'phase': 'stopped'})
 
 
 if __name__ == '__main__':
