@@ -17,3 +17,5 @@ No VS Code, use **Terminal → Executar Tarefa** para testar, validar, simular o
 Os arquivos de estado, resultados e credenciais ficam fora do controle de versão. A configuração inicial contém apenas valores fictícios.
 
 Após `validate`, abra `research-report.md` para o resumo legível. Nenhuma estratégia é selecionada automaticamente; aprovação exige superar comprar e manter em todas as janelas, inclusive na carteira.
+
+Para coletar sinais futuros sem criar ordens, use `python bot.py observe` ou mantenha `python bot.py watch` aberto. Consulte `observation-report.md`. Esse diário separado não libera estratégias reprovadas. Configure Telegram localmente com `./configurar-telegram.ps1`; o token não é salvo em arquivo.

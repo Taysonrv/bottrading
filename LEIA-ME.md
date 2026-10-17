@@ -45,6 +45,20 @@ Crie um bot com o [BotFather](https://t.me/BotFather), inicie uma conversa com e
 
 São enviados eventos de início/fim, ordens simuladas, bloqueios, validação, erros e revisão diária. O envio ainda não foi testado com uma conta Telegram. Não há comandos remotos nem botão Telegram nesta versão; o desligamento é local.
 
+Execute `./configurar-telegram.ps1` no PowerShell para informar token com digitação oculta e chat ID. O script define variáveis somente no terminal atual e envia um teste. As mensagens são legíveis; bloqueios e erros idênticos são enviados no máximo uma vez por dia, salvo falha no envio. Ordens e eventos de início/fim nunca são suprimidos. Amostras de observação não enviam alerta a cada minuto.
+
+## Acompanhamento de sinais futuros
+
+`python bot.py observe` registra uma amostra de sinais das três estratégias. `python bot.py watch` mantém esse acompanhamento a cada minuto, com uma única amostra por candle horário fechado. Usa apenas dados públicos e não chama o motor de ordens nem altera `state.json`. Funciona mesmo com estratégias reprovadas porque apenas observa sinais, sem simular compras ou vendas.
+
+O diário separado `observation-state.json` preserva sinais, horário e bid/ask coletados naquele momento. Na amostra da hora seguinte, associa o retorno bruto do mercado ao sinal anterior. Intervalos com lacunas ou fora da faixa de 45–75 minutos são ignorados, sem preenchimento retroativo. `observation-report.md` apresenta as médias desses retornos após sinais de entrada: não são lucro, não incluem custos e não aprovam estratégias.
+
+Mudanças no código/configuração interrompem uma sessão de observação existente. Preserve os dois arquivos de observação em uma pasta de arquivo e inicie uma nova sessão somente após revisar a mudança; não misture resultados entre versões. `STOP` desliga também o acompanhamento. `run`, `once`, `watch` e `observe` compartilham a mesma trava de processo.
+
+`python bot.py status` consulta o estado salvo sem rede. Não confirma que um processo esteja rodando. Nenhum acompanhamento contínuo é iniciado automaticamente pela instalação.
+
+No Windows, `./iniciar-observacao.ps1` permite iniciar manualmente o acompanhamento em segundo plano, com janela oculta. Logs ficam em `watch-output.log` e `watch-error.log`, ignorados pelo Git. O script não configura inicialização automática nem reinicia o processo após falhas. Use `python bot.py stop` para desligar. Credenciais Telegram precisam estar no mesmo terminal que inicia o script.
+
 ## Revisão e arquivos
 
 `python bot.py review` resume eventos das últimas 24 horas em `night-review.json` e mostra quais estratégias/ativos reprovaram na última comparação. No processo contínuo, há uma revisão na primeira execução de cada dia no fuso UTC-3. Não baixa dados nem executa novas pesquisas automaticamente. Ainda não gera alterações de código; nunca modifica parâmetros sozinho.

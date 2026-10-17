@@ -11,4 +11,8 @@ night-review.json
 STOP
 runtime.lock
 research-report.md
+observation-state.json
+observation-report.md
+notifications-state.json
+*.log
 *.tmp

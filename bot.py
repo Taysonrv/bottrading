@@ -11,6 +11,8 @@ import time
 import urllib.parse
 import urllib.request
 import research
+import observer
+import notifications
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -61,9 +63,11 @@ def notify(message):
                              {'chat_id': chat, 'text': message})
             if not result.get('ok'):
                 raise RuntimeError('Telegram recusou a mensagem')
+            return True
         except Exception:
             # Never log URLs containing credentials.
             print('Falha no Telegram; evento preservado no diário local.')
+    return False
 
 
 def event(kind, **fields):
@@ -71,8 +75,14 @@ def event(kind, **fields):
     with (ROOT / 'events.jsonl').open('a', encoding='utf-8') as stream:
         stream.write(json.dumps(item, ensure_ascii=False) + '\n')
     print(json.dumps(item, ensure_ascii=False))
-    if kind != 'cycle':
-        notify(json.dumps(item, ensure_ascii=False))
+    if kind not in ('cycle', 'observation'):
+        path = ROOT / 'notifications-state.json'
+        sent = read(path) if path.exists() else {}
+        allowed, marker = notifications.should_send(item, sent)
+        if allowed and notify(notifications.message(item)) and marker:
+            key, day = marker
+            sent[key] = day
+            save(path, sent)
 
 
 def candles(symbol, count=1000):
@@ -231,6 +241,42 @@ def cycle(config):
           cash=state['cash'], positions=state['positions'], peak=state['peak'])
 
 
+def observe(config):
+    if (ROOT / 'STOP').exists():
+        raise ValueError('Observação desligada pelo STOP')
+    path = ROOT / 'observation-state.json'
+    state = read(path) if path.exists() else None
+    histories = {s: candles(s, 300) for s in config['symbols']}
+    quotes = {s: quote(s) for s in config['symbols']}
+    for symbol, rows in histories.items():
+        prices = [r['close'] for r in rows][-200:]
+        quotes[symbol]['signals'] = {}
+        for strategy in research.STRATEGIES:
+            regime, fraction = research.target(prices, strategy, signal)
+            quotes[symbol]['signals'][strategy] = {'regime': regime, 'target': fraction}
+    version = observer.identity(config, fingerprint(config))
+    state, changed = observer.advance(state, histories, quotes, version, time.time())
+    if (ROOT / 'STOP').exists():
+        raise ValueError('Observação desligada pelo STOP')
+    if changed:
+        save(path, state)
+        (ROOT / 'observation-report.md').write_text(observer.markdown(state), encoding='utf-8')
+        event('observation', samples=len(state['snapshots']), gaps=state['gaps'])
+    else:
+        print('Este candle já foi observado; nenhuma amostra duplicada.')
+
+
+def status():
+    state_path, observed_path = ROOT / 'state.json', ROOT / 'observation-state.json'
+    state = read(state_path) if state_path.exists() else {}
+    observed = read(observed_path) if observed_path.exists() else {}
+    print(json.dumps({'mode': 'paper', 'stop': (ROOT / 'STOP').exists(),
+          'drawdown_halted': state.get('halted', False), 'paper_cash': state.get('cash'),
+          'observation_samples': len(observed.get('snapshots', [])),
+          'last_observed_at': observed.get('snapshots', [{}])[-1].get('observed_at') if observed else None,
+          'note': 'Estado salvo; não confirma que há um processo rodando.'}, ensure_ascii=False, indent=2))
+
+
 def review():
     entries = []
     path = ROOT / 'events.jsonl'
@@ -251,12 +297,16 @@ def review():
          'validation_created': validation.get('created'),
          'proposals': proposals or ['Executar validação histórica para obter comparações.'],
          'status': 'Somente relatório. Nenhum parâmetro ou código foi alterado.'})
+    observation_path = ROOT / 'observation-state.json'
+    observed = read(observation_path) if observation_path.exists() else None
+    (ROOT / 'observation-report.md').write_text(observer.markdown(observed), encoding='utf-8')
     event('review', counts=counts)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['validate', 'once', 'run', 'stop', 'resume', 'review'])
+    parser.add_argument('command', choices=['validate', 'once', 'run', 'stop', 'resume', 'review',
+                                             'observe', 'watch', 'status', 'telegram-test'])
     args = parser.parse_args()
     if args.command == 'stop':
         (ROOT / 'STOP').touch()
@@ -266,22 +316,30 @@ def main():
         (ROOT / 'STOP').unlink(missing_ok=True)
         print('STOP removido. Trava de drawdown permanece, se acionada.')
         return
+    if args.command == 'telegram-test':
+        if not notify('[SIMULAÇÃO] Conexão Telegram confirmada. Nenhuma ordem real está habilitada.'):
+            raise SystemExit('Telegram não configurado ou envio recusado. Confira token/chat ID localmente.')
+        print('Mensagem de teste enviada ao chat configurado.')
+        return
+    if args.command == 'status':
+        status()
+        return
     config = read(ROOT / 'config.json')
     config_check(config)
     if args.command == 'validate':
         validate(config)
     elif args.command == 'review':
         review()
-    elif args.command == 'once':
+    elif args.command in ('once', 'observe'):
         with runtime_lock():
-            cycle(config)
+            (cycle if args.command == 'once' else observe)(config)
     else:
         with runtime_lock():
             last_review = None
-            event('started', mode='paper')
+            event('started', mode='paper', command=args.command)
             while not (ROOT / 'STOP').exists():
                 try:
-                    cycle(config)
+                    (observe if args.command == 'watch' else cycle)(config)
                     day = dt.datetime.now(dt.timezone(dt.timedelta(hours=-3))).date().isoformat()
                     if day != last_review:
                         review()
