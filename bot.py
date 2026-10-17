@@ -15,6 +15,7 @@ import observer
 import notifications
 import wallet
 import accounting
+import execution
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -133,14 +134,16 @@ def fingerprint(config):
     return hashlib.sha256((Path(__file__).read_text(encoding='utf-8') +
                            Path(research.__file__).read_text(encoding='utf-8') +
                            Path(accounting.__file__).read_text(encoding='utf-8') +
+                           Path(execution.__file__).read_text(encoding='utf-8') +
                            json.dumps(config, sort_keys=True)).encode()).hexdigest()
 
 
 def validate(config):
     histories = {}
+    cutoff = int(time.time() * 1000) // research.HOUR * research.HOUR
     for symbol in config['symbols']:
         print(f'Baixando {config["history_days"]} dias de {symbol}...', flush=True)
-        histories[symbol] = research.download(symbol, config['history_days'], request)
+        histories[symbol] = research.download(symbol, config['history_days'], request, end=cutoff)
     comparisons = research.evaluate(histories, config, signal)
     active = comparisons[config['strategy']]
     report = {'created': time.time(), 'fingerprint': fingerprint(config),
@@ -233,18 +236,17 @@ def cycle(config):
         price = prices[symbol]
         units = state['positions'].get(symbol, 0)
         equity = state['cash'] + sum(q * prices[s] for s, q in state['positions'].items())
-        delta = equity * config['max_symbol_fraction'] * target - units * price
-        delta = max(-equity * config['max_order_fraction'], min(delta, equity * config['max_order_fraction']))
         exposure = sum(q * prices[s] for s, q in state['positions'].items())
-        if delta > 0:
-            delta = min(delta, max(0, equity * config['max_total_fraction'] - exposure))
+        buying = equity * config['max_symbol_fraction'] * target > units * price
+        reference = quotes[symbol]['ask'] if buying else quotes[symbol]['bid']
+        delta = execution.plan(equity, state['cash'], units, price, reference, exposure,
+                               target, config, config['fee_rate'], config['slippage_rate'])
         if abs(delta) >= 10:
             try:
                 guard(state, equity)  # Checked immediately before EACH simulated order.
             except ValueError:
                 save(state_path, state)
                 raise
-            reference = quotes[symbol]['ask'] if delta > 0 else quotes[symbol]['bid']
             state['cash'], state['positions'][symbol], order = research.fill(
                 state['cash'], units, reference, delta, config['fee_rate'], config['slippage_rate'])
             if order:

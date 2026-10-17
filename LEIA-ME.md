@@ -19,6 +19,10 @@ Após 200 candles de aquecimento, os primeiros 75% são divididos em três janel
 
 O backtest usa sinais do fechamento anterior e execução na abertura seguinte. Aplica os mesmos limites de exposição e tamanho de ordem da simulação. Verifica também uma estimativa conservadora de perda pelas mínimas horárias simultâneas. Taxas são debitadas do caixa; slippage altera o preço de execução. Posições restantes são avaliadas pelo valor líquido estimado de venda ao final. O mínimo genérico de 10 USDT não substitui filtros reais da exchange.
 
+O dimensionamento é compartilhado em `execution.py`: o orçamento por ordem inclui a taxa e o preço com slippage. Na compra, o spread bid/ask e a redução de patrimônio pelos custos entram no cálculo de exposição máxima após a operação. Posições já acima dos limites não recebem mais compras; a redução permanece sujeita ao limite por ordem. Isso não garante que oscilações de preço mantenham a exposição abaixo do limite.
+
+A validação também exige aprovação em dois cenários de carteira: período final iniciando com 80% do capital em cripto, com pesos iguais, e todo o período sem reiniciar caixa/posições. No cenário de posições existentes, 80% é um teste fixo de robustez, não recomendação nem leitura da sua carteira. O cenário não cobra uma compra fictícia inicial, pois os ativos já são considerados existentes no começo; o resultado começa nesse preço de referência.
+
 O resultado está em `research-report.md` e o detalhamento em `validation.json`. A estratégia ativa permanece definida em `config.json`; nenhuma comparação altera essa configuração. A aprovação expira em 24 horas e alterações no código/configuração a invalidam. Reexecute a validação manualmente. Reutilizar o período final para ajustar regras exige um novo período futuro para confirmação independente.
 
 `run` verifica o mercado a cada minuto e decide apenas uma vez por candle fechado. O sinal usa candles fechados, mas a execução simulada consulta o bid/ask atual: compra no ask e vende no bid, mais slippage estimado. O computador precisa permanecer ligado, com internet e processo aberto. Nenhum serviço ou tarefa agendada foi instalado.

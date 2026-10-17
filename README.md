@@ -4,6 +4,8 @@ Protótipo em Python para simulação de estratégias Binance Spot. Não envia o
 
 Inclui regimes de mercado, bloqueio de drawdown, desligamento local, validação cronológica e notificações Telegram opcionais. A pesquisa compara três regras fixas em um ano de dados, com período final separado, carteira conjunta e custos dobrados. A simulação usa bid/ask atual; o backtest executa na abertura seguinte ao sinal.
 
+O cálculo de tamanho das ordens é compartilhado pelo backtest e pela simulação, incluindo custos no orçamento e nos limites de exposição. A aprovação também considera carteira inicialmente investida e execução contínua sem reiniciar saldos entre janelas.
+
 Leia [as instruções e limitações](LEIA-ME.md) antes de executar.
 
 ```powershell

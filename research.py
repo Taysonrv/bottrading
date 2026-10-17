@@ -3,6 +3,7 @@ import math
 import statistics
 import time
 import urllib.parse
+import execution
 
 HOUR = 3_600_000
 STRATEGIES = ('regime_v1', 'trend_v1', 'breakout_v1')
@@ -20,9 +21,11 @@ def check_rows(rows, expected=None):
         raise ValueError('Histórico com lacunas ou duplicatas')
 
 
-def download(symbol, days, request):
+def download(symbol, days, request, end=None):
     # UTC hour boundary fixes both endpoints; the current open candle is excluded.
-    end = int(time.time() * 1000) // HOUR * HOUR
+    end = int(time.time() * 1000) // HOUR * HOUR if end is None else end
+    if type(end) is not int or end % HOUR:
+        raise ValueError('Horário final precisa ser uma hora UTC fechada')
     start = end - days * 24 * HOUR
     cursor, rows = start, []
     while cursor < end:
@@ -77,10 +80,13 @@ def fill(cash, units, reference, delta, fee, slippage, minimum=10):
         'price': price, 'fee': charge, 'slippage_cost': abs(quantity) * abs(price - reference)}
 
 
-def backtest(histories, start, end, config, strategy, base_signal, stress=1):
+def backtest(histories, start, end, config, strategy, base_signal, stress=1, initial_exposure=0.):
     """One shared wallet, signal at t-1 close, fill at t open, low-price risk check."""
     symbols = list(histories)
-    cash, positions = 1000.0, dict.fromkeys(symbols, 0.0)
+    if not 0 <= initial_exposure <= 1:
+        raise ValueError('Exposição inicial inválida')
+    cash = 1000.0 * (1 - initial_exposure)
+    positions = {s: 1000.0 * initial_exposure / len(symbols) / histories[s][start]['open'] for s in symbols}
     peak, worst, trades, costs = 1000.0, 0.0, 0, 0.0
     halted = False
     fee, slip = config['fee_rate'] * stress, config['slippage_rate'] * stress
@@ -103,12 +109,9 @@ def backtest(histories, start, end, config, strategy, base_signal, stress=1):
             if halted:
                 break
             fraction = target(closes[symbol][max(0, i - 200):i], strategy, base_signal)[1]
-            delta = equity * config['max_symbol_fraction'] * fraction - positions[symbol] * opens[symbol]
-            cap = equity * config['max_order_fraction']
-            delta = max(-cap, min(cap, delta))
-            if delta > 0:
-                exposure = sum(positions[s] * opens[s] for s in symbols)
-                delta = min(delta, max(0, equity * config['max_total_fraction'] - exposure))
+            exposure = sum(positions[s] * opens[s] for s in symbols)
+            delta = execution.plan(equity, cash, positions[symbol], opens[symbol], opens[symbol],
+                                   exposure, fraction, config, fee, slip)
             cash, positions[symbol], order = fill(cash, positions[symbol], opens[symbol], delta, fee, slip)
             if order:
                 trades += 1
@@ -126,6 +129,7 @@ def backtest(histories, start, end, config, strategy, base_signal, stress=1):
               'matched_exposure_benchmark': benchmark * matched_fraction,
               'drawdown': worst, 'trades': trades, 'costs_usdt': costs,
               'halted': halted, 'first_candle': histories[symbols[0]][start]['open_time'],
+              'initial_exposure': initial_exposure,
               'last_candle': histories[symbols[0]][end - 1]['time']}
     result['passed'] = (result['return'] > max(0, benchmark) and worst < .15 and trades >= 3 and not halted)
     return result
@@ -151,9 +155,12 @@ def evaluate(histories, config, base_signal):
         portfolio = [backtest(histories, a, b, config, strategy, base_signal) for a, b in windows]
         holdout = backtest(histories, boundary, count, config, strategy, base_signal)
         stress = backtest(histories, boundary, count, config, strategy, base_signal, stress=2)
+        existing = backtest(histories, boundary, count, config, strategy, base_signal, initial_exposure=.8)
+        continuous = backtest(histories, 200, count, config, strategy, base_signal)
         comparisons[strategy] = {'symbols': individual, 'portfolio_folds': portfolio,
                                  'portfolio_holdout': holdout, 'portfolio_stress': stress,
-                                 'passed': all(f['passed'] for f in portfolio + [holdout, stress]) and
+                                 'existing_positions_holdout': existing, 'continuous_portfolio': continuous,
+                                 'passed': all(f['passed'] for f in portfolio + [holdout, stress, existing, continuous]) and
                                  all(r['passed'] for r in individual.values())}
     return comparisons
 
@@ -166,9 +173,12 @@ def markdown(report):
     for name, comparison in report['comparisons'].items():
         rows = [(s, r['holdout'], r['passed']) for s, r in comparison['symbols'].items()]
         rows.append(('Carteira', comparison['portfolio_holdout'], comparison['passed']))
+        rows.append(('Carteira com posições iniciais (80%)', comparison['existing_positions_holdout'], comparison['existing_positions_holdout']['passed']))
+        rows.append(('Carteira contínua (período completo)', comparison['continuous_portfolio'], comparison['continuous_portfolio']['passed']))
         for symbol, result, passed in rows:
             lines.append(f"| {name} | {symbol} | {result['return']:.2%} | {result['benchmark']:.2%} | {result['drawdown']:.2%} | {'Sim' if passed else 'Não'} |")
-    lines += ['', 'Tabela: período final reservado (25% após aquecimento). Aprovação exige também passar nas três janelas anteriores e com custos dobrados.',
+    lines += ['', 'Tabela: período final reservado (25% após aquecimento), exceto a linha contínua que usa todo o período. Aprovação exige também passar nas três janelas anteriores, com custos dobrados, com posições iniciais e sem reiniciar a carteira ao longo do período completo.',
+              '', 'O cenário de posições iniciais assume 80% do capital já investido, com pesos iguais pelo preço de abertura. Não representa a carteira real nem inclui seu custo histórico. A redução de exposição continua limitada por ordem; não é instantânea.',
               '', 'Benchmark principal: comprar e manter com 100% do capital (pesos iguais na carteira). O JSON também mostra benchmark proporcional à exposição.',
               '', 'Regras e parâmetros fixos; não houve otimização. Reutilizar este período para ajustar regras transforma-o em desenvolvimento; será necessário um novo período futuro para confirmar.',
               '', 'Execução histórica: abertura seguinte ao sinal, taxas/slippage estimados, limites compartilhados e avaliação conservadora das mínimas horárias. Não modela livro completo nem garante perdas limitadas a 15%.']
