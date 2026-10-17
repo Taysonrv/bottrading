@@ -1,0 +1,11 @@
+{
+  "mode": "paper",
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "paper_usdt": 1000,
+  "paper_positions": {},
+  "max_symbol_fraction": 0.2,
+  "max_order_fraction": 0.05,
+  "max_total_fraction": 0.6,
+  "fee_rate": 0.001,
+  "slippage_rate": 0.001
+}

@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "Bot: testar controles", "type": "process", "command": "python", "args": ["-m", "unittest", "-v"], "problemMatcher": []},
+    {"label": "Bot: validar estratégias", "type": "process", "command": "python", "args": ["bot.py", "validate"], "problemMatcher": []},
+    {"label": "Bot: simular um ciclo", "type": "process", "command": "python", "args": ["bot.py", "once"], "problemMatcher": []},
+    {"label": "Bot: iniciar simulação contínua", "type": "process", "command": "python", "args": ["bot.py", "run"], "problemMatcher": []},
+    {"label": "Bot: DESLIGAR", "type": "process", "command": "python", "args": ["bot.py", "stop"], "problemMatcher": []}
+  ]
+}
