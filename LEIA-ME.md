@@ -97,6 +97,12 @@ Para posições já existentes ou arquivos antigos sem contabilidade, a primeira
 
 Ao atualizar o código durante uma observação, encerre o processo com `python bot.py stop`. Aguarde o término, execute `python bot.py observation-archive` para preservar a sessão anterior, depois `python bot.py resume` e `python bot.py watch`. O arquivo da carteira simulada não é reiniciado. A sessão arquivada fica local, fora do Git. A aprovação histórica anterior também expira após mudanças de código.
 
+## Experimento de saída defensiva
+
+Após `python bot.py validate`, `defensive-report.md` compara o bloqueio atual com uma política experimental de venda gradual após atingir o gatilho de drawdown. Usa o mesmo histórico contínuo e as mesmas entradas, também com custos dobrados e com 80% de posições iniciais. A venda simulada respeita o orçamento por ordem e o mínimo de negociação; pode deixar resíduos. Não há recompra depois do gatilho. STOP impede também vendas defensivas.
+
+Essa política existe somente no backtest. Não foi ativada no motor de simulação, no observador ou na conta Binance, nem altera os critérios de aprovação. Não garante drawdown máximo de 15%: a detecção ocorre depois de uma variação de preço e a redução pode levar várias horas. O relatório informa exposição remanescente para evitar confundir bloqueio de novas ordens com eliminação de risco.
+
 ## Referências oficiais
 
 - [Binance Spot: documentação](https://github.com/binance/binance-spot-api-docs)

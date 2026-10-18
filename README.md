@@ -10,6 +10,8 @@ Inclui regimes de mercado, bloqueio de drawdown, desligamento local, validação
 
 O cálculo de tamanho das ordens é compartilhado pelo backtest e pela simulação, incluindo custos no orçamento e nos limites de exposição. A aprovação também considera carteira inicialmente investida e execução contínua sem reiniciar saldos entre janelas.
 
+`validate` também gera `defensive-report.md`, comparando o bloqueio atual com uma saída gradual experimental após o gatilho de drawdown. Essa pesquisa não altera o bot ativo nem libera estratégias. As vendas defensivas do experimento começam na abertura seguinte à detecção, com o mesmo orçamento por ordem; o drawdown ainda pode ultrapassar 15%.
+
 Leia [as instruções e limitações](LEIA-ME.md) antes de executar.
 
 ```powershell

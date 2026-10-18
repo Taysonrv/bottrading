@@ -153,6 +153,7 @@ def validate(config):
               'warning': 'Pesquisa com regras fixas; não comprova rentabilidade futura.'}
     save(ROOT / 'validation.json', report)
     (ROOT / 'research-report.md').write_text(research.markdown(report), encoding='utf-8')
+    (ROOT / 'defensive-report.md').write_text(research.defensive_markdown(report), encoding='utf-8')
     event('validation', strategy=config['strategy'], portfolio_passed=active['passed'],
           comparisons={s: r['passed'] for s, r in comparisons.items()})
 

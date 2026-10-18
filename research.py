@@ -80,15 +80,18 @@ def fill(cash, units, reference, delta, fee, slippage, minimum=10):
         'price': price, 'fee': charge, 'slippage_cost': abs(quantity) * abs(price - reference)}
 
 
-def backtest(histories, start, end, config, strategy, base_signal, stress=1, initial_exposure=0.):
+def backtest(histories, start, end, config, strategy, base_signal, stress=1, initial_exposure=0., risk_policy='freeze', stop_requested=None):
     """One shared wallet, signal at t-1 close, fill at t open, low-price risk check."""
     symbols = list(histories)
+    if risk_policy not in ('freeze', 'reduce'):
+        raise ValueError('Política de risco desconhecida')
     if not 0 <= initial_exposure <= 1:
         raise ValueError('Exposição inicial inválida')
     cash = 1000.0 * (1 - initial_exposure)
     positions = {s: 1000.0 * initial_exposure / len(symbols) / histories[s][start]['open'] for s in symbols}
     peak, worst, trades, costs = 1000.0, 0.0, 0, 0.0
     halted = False
+    stopped, halt_at, defensive_orders, defensive_buys = False, None, 0, 0
     fee, slip = config['fee_rate'] * stress, config['slippage_rate'] * stress
     closes = {s: [r['close'] for r in rows] for s, rows in histories.items()}
     def mark(prices):
@@ -99,26 +102,41 @@ def backtest(histories, start, end, config, strategy, base_signal, stress=1, ini
         worst = max(worst, 1 - value / peak)
         halted = halted or worst >= .15
     for i in range(start, end):
+        reduce_ready = halted  # A newly observed trigger cannot fill at an earlier/same opening.
         opens = {s: histories[s][i]['open'] for s in symbols}
         risk(mark(opens))
+        if halted and halt_at is None:
+            halt_at = histories[symbols[0]][i]['open_time']
         for symbol in symbols:
-            if halted:
+            if stopped or (halted and (risk_policy == 'freeze' or not reduce_ready)):
                 break
             equity = mark(opens)
             risk(equity)  # Fees from earlier orders can trigger a block.
-            if halted:
+            if halted and halt_at is None:
+                halt_at = histories[symbols[0]][i]['open_time']
+            if halted and (risk_policy == 'freeze' or not reduce_ready):
                 break
-            fraction = target(closes[symbol][max(0, i - 200):i], strategy, base_signal)[1]
+            fraction = 0. if halted else target(closes[symbol][max(0, i - 200):i], strategy, base_signal)[1]
             exposure = sum(positions[s] * opens[s] for s in symbols)
             delta = execution.plan(equity, cash, positions[symbol], opens[symbol], opens[symbol],
                                    exposure, fraction, config, fee, slip)
+            if stop_requested and stop_requested():
+                stopped = True
+                break
+            if halted and delta > 0:
+                raise ValueError('Saída defensiva não pode aumentar exposição')
             cash, positions[symbol], order = fill(cash, positions[symbol], opens[symbol], delta, fee, slip)
             if order:
                 trades += 1
                 costs += order['fee'] + order['slippage_cost']
+                if halted:
+                    defensive_orders += 1
+                    defensive_buys += order['side'] == 'BUY'
         # Conservative: assumes all assets' hourly lows occur together.
         risk(mark({s: histories[s][i]['low'] for s in symbols}))
         risk(mark({s: histories[s][i]['close'] for s in symbols}))
+        if halted and halt_at is None:
+            halt_at = histories[symbols[0]][i]['time']
     # Value all remaining inventory at net sale proceeds, without bypassing the kill switch.
     terminal = cash + sum(positions[s] * histories[s][end - 1]['close'] * (1 - slip) * (1 - fee) for s in symbols)
     risk(terminal)
@@ -130,8 +148,11 @@ def backtest(histories, start, end, config, strategy, base_signal, stress=1, ini
               'drawdown': worst, 'trades': trades, 'costs_usdt': costs,
               'halted': halted, 'first_candle': histories[symbols[0]][start]['open_time'],
               'initial_exposure': initial_exposure,
+              'risk_policy': risk_policy, 'halt_at': halt_at, 'manually_stopped': stopped,
+              'defensive_orders': defensive_orders, 'defensive_buys': defensive_buys,
+              'remaining_exposure_usdt': sum(positions[s] * histories[s][end - 1]['close'] for s in symbols),
               'last_candle': histories[symbols[0]][end - 1]['time']}
-    result['passed'] = (result['return'] > max(0, benchmark) and worst < .15 and trades >= 3 and not halted)
+    result['passed'] = (result['return'] > max(0, benchmark) and worst < .15 and trades >= 3 and not halted and not stopped)
     return result
 
 
@@ -157,9 +178,15 @@ def evaluate(histories, config, base_signal):
         stress = backtest(histories, boundary, count, config, strategy, base_signal, stress=2)
         existing = backtest(histories, boundary, count, config, strategy, base_signal, initial_exposure=.8)
         continuous = backtest(histories, 200, count, config, strategy, base_signal)
+        defensive = {'adopted': False, 'freeze': continuous,
+                     'reduce': backtest(histories, 200, count, config, strategy, base_signal, risk_policy='reduce'),
+                     'reduce_stress': backtest(histories, 200, count, config, strategy, base_signal, stress=2, risk_policy='reduce'),
+                     'existing_freeze': backtest(histories, 200, count, config, strategy, base_signal, initial_exposure=.8),
+                     'existing_reduce': backtest(histories, 200, count, config, strategy, base_signal, initial_exposure=.8, risk_policy='reduce')}
         comparisons[strategy] = {'symbols': individual, 'portfolio_folds': portfolio,
                                  'portfolio_holdout': holdout, 'portfolio_stress': stress,
                                  'existing_positions_holdout': existing, 'continuous_portfolio': continuous,
+                                 'defensive_research': defensive,
                                  'passed': all(f['passed'] for f in portfolio + [holdout, stress, existing, continuous]) and
                                  all(r['passed'] for r in individual.values())}
     return comparisons
@@ -182,4 +209,22 @@ def markdown(report):
               '', 'Benchmark principal: comprar e manter com 100% do capital (pesos iguais na carteira). O JSON também mostra benchmark proporcional à exposição.',
               '', 'Regras e parâmetros fixos; não houve otimização. Reutilizar este período para ajustar regras transforma-o em desenvolvimento; será necessário um novo período futuro para confirmar.',
               '', 'Execução histórica: abertura seguinte ao sinal, taxas/slippage estimados, limites compartilhados e avaliação conservadora das mínimas horárias. Não modela livro completo nem garante perdas limitadas a 15%.']
+    return '\n'.join(lines) + '\n'
+
+
+def defensive_markdown(report):
+    lines = ['# Saída defensiva — experimento histórico', '',
+             'Pesquisa separada: nenhuma mudança no bot ativo ou nos critérios de aprovação.', '',
+             '| Estratégia | Cenário contínuo | Retorno | Drawdown | Vendas defensivas | Exposição final (USDT) |',
+             '|---|---|---:|---:|---:|---:|']
+    labels = {'freeze': 'Bloqueio atual', 'reduce': 'Saída gradual', 'reduce_stress': 'Saída gradual / custos dobrados',
+              'existing_freeze': '80% investido / bloqueio atual', 'existing_reduce': '80% investido / saída gradual'}
+    for strategy, comparison in report['comparisons'].items():
+        for key, label in labels.items():
+            r = comparison['defensive_research'][key]
+            lines.append(f"| {strategy} | {label} | {r['return']:.2%} | {r['drawdown']:.2%} | {r['defensive_orders']} | {r['remaining_exposure_usdt']:.2f} |")
+    lines += ['', 'Mesmo histórico e regras de entrada para as políticas comparadas. O cenário experimental só vende após o gatilho de 15%; não volta a comprar.',
+              'Vendas simuladas continuam limitadas por ordem e ocorrem na abertura seguinte à detecção. Lacunas de preço, custos e o tempo para reduzir posições podem fazer o drawdown ultrapassar 15%.',
+              'STOP sempre prevalece. Não se assume liquidação instantânea. Resíduos abaixo do mínimo de ordem podem permanecer.',
+              'Um resultado melhor neste histórico não valida a política em dados futuros. Nenhuma estratégia foi liberada por esse experimento.']
     return '\n'.join(lines) + '\n'
