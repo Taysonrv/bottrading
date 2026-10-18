@@ -32,6 +32,25 @@ def snapshot(root):
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
     daily = read(root, 'reports/2026-10-18-daily-results.json')
+    grid = read(root, 'reports/2026-10-18-grid-results.json')
+    acceptance = read(root, 'reports/2026-10-18-limit-acceptance.json')
+    grid_rows = []
+    for name, result in grid.get('comparisons', {}).items():
+        row = result.get('scenarios', {}).get('continuous', {})
+        grid_rows.append({'name': name, 'return': row.get('return'), 'drawdown': row.get('drawdown'),
+                          'costs': row.get('costs_usdt'), 'qualified': result.get('qualified_historical', False)})
+    def metric(value):
+        import math
+        try:
+            result = float(value)
+            return result if math.isfinite(result) else None
+        except (ValueError, TypeError, OverflowError):
+            return None
+    acceptance_rows = []
+    for name, item in acceptance.get('scenarios', {}).items():
+        row = item.get('summary', {})
+        acceptance_rows.append({'name': name, **{k: metric(row.get(k)) for k in
+            ('equity', 'fees', 'reserved_cash', 'active_orders', 'fills', 'drawdown')}})
     daily_rows = []
     for name, result in daily.get('comparisons', {}).items():
         continuous = result.get('continuous', {})
@@ -91,6 +110,10 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'test_budget': {'configured_cash': config.get('paper_usdt'), 'measured': bool(state.get('performance'))},
+            'grid_research': {'created': grid.get('created'), 'comparisons': grid_rows},
+            'limit_acceptance': {'synthetic': True, 'capital': metric(acceptance.get('capital_usdt')),
+                                 'scenarios': acceptance_rows},
             'daily_research': {'created': daily.get('created'), 'adopted': False,
                                'independent_out_of_sample': False, 'comparisons': daily_rows},
             'limits': {k: config.get(k) for k in ('max_symbol_fraction', 'max_order_fraction', 'max_total_fraction')},

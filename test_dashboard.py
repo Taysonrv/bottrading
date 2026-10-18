@@ -95,6 +95,26 @@ class DashboardTests(unittest.TestCase):
     def test_missing_daily_report_is_empty(self):
         self.assertEqual(dashboard.snapshot(self.root)['daily_research']['comparisons'], [])
 
+    def test_budget_does_not_fabricate_performance(self):
+        (self.root / 'config.json').write_text('{"paper_usdt":1000}')
+        data = dashboard.snapshot(self.root)
+        self.assertEqual(data['test_budget']['configured_cash'], 1000)
+        self.assertFalse(data['test_budget']['measured'])
+        self.assertIsNone(data['performance'])
+
+    def test_limit_fixture_decimals_and_grid_are_visible_but_never_approve(self):
+        (self.root / 'reports').mkdir()
+        (self.root / 'reports/2026-10-18-limit-acceptance.json').write_text(json.dumps({
+            'capital_usdt': 1000, 'scenarios': {'example': {'summary': {'equity': '1002.45',
+                'fees': '.05', 'reserved_cash': 'NaN', 'fills': 6}}}}))
+        (self.root / 'reports/2026-10-18-grid-results.json').write_text(json.dumps({
+            'comparisons': {'grid_range_v1': {'scenarios': {'continuous': {'return': -.11}}}}}))
+        data = dashboard.snapshot(self.root)
+        self.assertEqual(data['limit_acceptance']['scenarios'][0]['equity'], 1002.45)
+        self.assertIsNone(data['limit_acceptance']['scenarios'][0]['reserved_cash'])
+        self.assertEqual(data['grid_research']['comparisons'][0]['return'], -.11)
+        self.assertFalse(data['diagnostics']['paper_ready'])
+
     def test_invalid_partial_event_is_skipped(self):
         (self.root / 'events.jsonl').write_text('{broken\n{"kind":"cycle","time":"2026-10-17T00:00:00Z","equity":1000}\n')
         data = dashboard.snapshot(self.root)
