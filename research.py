@@ -9,7 +9,7 @@ HOUR = 3_600_000
 STRATEGIES = ('regime_v1', 'trend_v1', 'breakout_v1')
 
 
-def check_rows(rows, expected=None):
+def check_rows(rows, expected=None, step=HOUR):
     if expected is not None and len(rows) != expected:
         raise ValueError('Histórico não cobre todo o período solicitado')
     for row in rows:
@@ -17,7 +17,7 @@ def check_rows(rows, expected=None):
             raise ValueError('Preço inválido')
         if row['low'] > min(row['open'], row['close']) or row['high'] < max(row['open'], row['close']):
             raise ValueError('OHLC inconsistente')
-    if any(b['open_time'] - a['open_time'] != HOUR for a, b in zip(rows, rows[1:])):
+    if any(b['open_time'] - a['open_time'] != step for a, b in zip(rows, rows[1:])):
         raise ValueError('Histórico com lacunas ou duplicatas')
 
 
@@ -80,7 +80,7 @@ def fill(cash, units, reference, delta, fee, slippage, minimum=10):
         'price': price, 'fee': charge, 'slippage_cost': abs(quantity) * abs(price - reference)}
 
 
-def backtest(histories, start, end, config, strategy, base_signal, stress=1, initial_exposure=0., risk_policy='freeze', stop_requested=None):
+def backtest(histories, start, end, config, strategy, base_signal, stress=1, initial_exposure=0., risk_policy='freeze', stop_requested=None, target_at=None):
     """One shared wallet, signal at t-1 close, fill at t open, low-price risk check."""
     symbols = list(histories)
     if risk_policy not in ('freeze', 'reduce'):
@@ -116,7 +116,8 @@ def backtest(histories, start, end, config, strategy, base_signal, stress=1, ini
                 halt_at = histories[symbols[0]][i]['open_time']
             if halted and (risk_policy == 'freeze' or not reduce_ready):
                 break
-            fraction = 0. if halted else target(closes[symbol][max(0, i - 200):i], strategy, base_signal)[1]
+            fraction = (0. if halted else target_at(symbol, i) if target_at else
+                        target(closes[symbol][max(0, i - 200):i], strategy, base_signal)[1])
             exposure = sum(positions[s] * opens[s] for s in symbols)
             delta = execution.plan(equity, cash, positions[symbol], opens[symbol], opens[symbol],
                                    exposure, fraction, config, fee, slip)
