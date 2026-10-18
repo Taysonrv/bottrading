@@ -1,0 +1,150 @@
+{
+  "capital_usdt": 1000,
+  "synthetic": true,
+  "historical_backtest": false,
+  "adopted": false,
+  "prices_are_fictional": true,
+  "scenarios": {
+    "synthetic_roundtrip_and_replacement": {
+      "summary": {
+        "cash": "1002.45000",
+        "positions": {
+          "BTCUSDT": "0.00"
+        },
+        "equity": "1002.45000",
+        "fees": "0.05000",
+        "reserved_cash": "23.77375",
+        "active_orders": 1,
+        "fills": 6,
+        "stopped": false,
+        "halted": false,
+        "drawdown": "0.0002754989210664426108322187"
+      },
+      "fills": [
+        {
+          "sequence": 1,
+          "order": 1,
+          "symbol": "BTCUSDT",
+          "side": "BUY",
+          "quantity": "0.1",
+          "price": "95",
+          "fee": "0.0095",
+          "status": "PARTIALLY_FILLED"
+        },
+        {
+          "sequence": 2,
+          "order": 1,
+          "symbol": "BTCUSDT",
+          "side": "BUY",
+          "quantity": "0.1",
+          "price": "95",
+          "fee": "0.0095",
+          "status": "PARTIALLY_FILLED"
+        },
+        {
+          "sequence": 3,
+          "order": 1,
+          "symbol": "BTCUSDT",
+          "side": "BUY",
+          "quantity": "0.05",
+          "price": "95",
+          "fee": "0.00475",
+          "status": "FILLED"
+        },
+        {
+          "sequence": 4,
+          "order": 2,
+          "symbol": "BTCUSDT",
+          "side": "SELL",
+          "quantity": "0.1",
+          "price": "105",
+          "fee": "0.0105",
+          "status": "PARTIALLY_FILLED"
+        },
+        {
+          "sequence": 5,
+          "order": 2,
+          "symbol": "BTCUSDT",
+          "side": "SELL",
+          "quantity": "0.1",
+          "price": "105",
+          "fee": "0.0105",
+          "status": "PARTIALLY_FILLED"
+        },
+        {
+          "sequence": 6,
+          "order": 2,
+          "symbol": "BTCUSDT",
+          "side": "SELL",
+          "quantity": "0.05",
+          "price": "105",
+          "fee": "0.00525",
+          "status": "FILLED"
+        }
+      ],
+      "replacement_order": 3
+    },
+    "synthetic_partial_then_cancel": {
+      "summary": {
+        "cash": "990.4905",
+        "positions": {
+          "BTCUSDT": "0.1"
+        },
+        "equity": "999.8905",
+        "fees": "0.0095",
+        "reserved_cash": "0",
+        "active_orders": 0,
+        "fills": 1,
+        "stopped": false,
+        "halted": false,
+        "drawdown": "0.0001095"
+      },
+      "fills": [
+        {
+          "sequence": 1,
+          "order": 1,
+          "symbol": "BTCUSDT",
+          "side": "BUY",
+          "quantity": "0.1",
+          "price": "95",
+          "fee": "0.0095",
+          "status": "PARTIALLY_FILLED"
+        }
+      ]
+    },
+    "synthetic_stop_before_fill": {
+      "summary": {
+        "cash": "1000",
+        "positions": {
+          "BTCUSDT": "0"
+        },
+        "equity": "1000",
+        "fees": "0",
+        "reserved_cash": "0",
+        "active_orders": 0,
+        "fills": 0,
+        "stopped": true,
+        "halted": false,
+        "drawdown": "0"
+      },
+      "fills": []
+    },
+    "synthetic_crash_with_existing_inventory": {
+      "summary": {
+        "cash": "800",
+        "positions": {
+          "BTCUSDT": "2"
+        },
+        "equity": "820",
+        "fees": "0",
+        "reserved_cash": "0",
+        "active_orders": 0,
+        "fills": 0,
+        "stopped": false,
+        "halted": true,
+        "drawdown": "0.18"
+      },
+      "fills": []
+    }
+  }
+}
