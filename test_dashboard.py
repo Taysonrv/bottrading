@@ -102,6 +102,15 @@ class DashboardTests(unittest.TestCase):
         self.assertFalse(data['test_budget']['measured'])
         self.assertIsNone(data['performance'])
 
+    def test_public_replay_cannot_replace_wallet_or_validation(self):
+        (self.root / 'reports').mkdir()
+        (self.root / 'reports/2026-10-18-grid-replay.json').write_text(json.dumps({
+            'created': '2026-10-18T23:00:00Z', 'events':1000, 'summary': {'equity':'1000', 'fills':0}}))
+        data = dashboard.snapshot(self.root)
+        self.assertEqual(data['grid_replay']['equity'], 1000)
+        self.assertIsNone(data['performance'])
+        self.assertFalse(data['diagnostics']['paper_ready'])
+
     def test_limit_fixture_decimals_and_grid_are_visible_but_never_approve(self):
         (self.root / 'reports').mkdir()
         (self.root / 'reports/2026-10-18-limit-acceptance.json').write_text(json.dumps({

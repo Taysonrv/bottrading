@@ -17,6 +17,9 @@ function render(data){const p=data.performance||{};const active=data.activity.re
  $('test-capital').textContent=number(budget.configured_cash)+' USDT fictícios';
  $('measurement-note').textContent=budget.measured?'Os cartões abaixo mostram a última medição salva da carteira.':'Ainda não há medição da carteira. Os traços abaixo não indicam saldo zero. O observador coleta sinais; os resultados dos experimentos estão na aba Estratégias.';
  const grid=data.grid_research||{comparisons:[]};
+ const replay=data.grid_replay||{};
+ $('replay-results').innerHTML=replay.created?table(['Negócios públicos','Duração (s)','Preenchimentos simulados','Ordens antes do corte','Patrimônio marcado USDT'],[[number(replay.events,0),number((replay.last_time-replay.first_time)/1000,3),number(replay.fills,0),number(replay.active_at_cutoff,0),number(replay.equity)]]):empty('Replay público ainda não disponível.','Execute python grid_replay.py na pasta do painel.');
+ $('replay-time').textContent=replay.created?`Consulta: ${date(replay.created)}. Dados públicos reais; ordens e carteira fictícias. Janela curta, sem aprovação de estratégia.`:'Teste operacional separado da carteira e dos backtests.';
  $('grid-results').innerHTML=grid.comparisons.length?table(['Hipótese','Retorno contínuo','Drawdown','Custos USDT','Resultado'],grid.comparisons.map(r=>[escape(r.name==='grid_range_v1'?'Grid por inventário':'Grid + tendência'),percent(r.return),percent(r.drawdown),number(r.costs),r.qualified?'Critérios atendidos · não adotada':'Reprovada'])):empty('Relatório Grid não encontrado.','Atualize o repositório ou execute python grid_research.py.');
  $('grid-time').textContent=grid.created?`Histórico gerado em ${date(grid.created)} · 365 dias horários, incluindo aquecimento. Não é o Grid nativo da Binance.`:'Resultados de pesquisa separados da carteira.';
  const acceptance=data.limit_acceptance||{scenarios:[]};

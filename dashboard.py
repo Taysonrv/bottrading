@@ -34,6 +34,7 @@ def snapshot(root):
     daily = read(root, 'reports/2026-10-18-daily-results.json')
     grid = read(root, 'reports/2026-10-18-grid-results.json')
     acceptance = read(root, 'reports/2026-10-18-limit-acceptance.json')
+    replay_report = read(root, 'reports/2026-10-18-grid-replay.json')
     grid_rows = []
     for name, result in grid.get('comparisons', {}).items():
         row = result.get('scenarios', {}).get('continuous', {})
@@ -114,6 +115,11 @@ def snapshot(root):
             'grid_research': {'created': grid.get('created'), 'comparisons': grid_rows},
             'limit_acceptance': {'synthetic': True, 'capital': metric(acceptance.get('capital_usdt')),
                                  'scenarios': acceptance_rows},
+            'grid_replay': {'created': replay_report.get('created'), 'events': metric(replay_report.get('events')),
+                            'first_time': metric(replay_report.get('first_time')), 'last_time': metric(replay_report.get('last_time')),
+                            'fills': metric(replay_report.get('summary', {}).get('fills')),
+                            'equity': metric(replay_report.get('summary', {}).get('equity')),
+                            'active_at_cutoff': metric(replay_report.get('active_at_cutoff'))},
             'daily_research': {'created': daily.get('created'), 'adopted': False,
                                'independent_out_of_sample': False, 'comparisons': daily_rows},
             'limits': {k: config.get(k) for k in ('max_symbol_fraction', 'max_order_fraction', 'max_total_fraction')},
