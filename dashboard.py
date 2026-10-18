@@ -31,6 +31,16 @@ def snapshot(root):
     validation = read(root, 'validation.json')
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
+    daily = read(root, 'reports/2026-10-18-daily-results.json')
+    daily_rows = []
+    for name, result in daily.get('comparisons', {}).items():
+        continuous = result.get('continuous', {})
+        final = result.get('final_reused', {})
+        daily_rows.append({'name': name, 'return': continuous.get('return'),
+                           'drawdown': continuous.get('drawdown'),
+                           'benchmark': continuous.get('benchmark'),
+                           'final_return': final.get('return'),
+                           'qualified': result.get('qualified_historical', False)})
     events, curve = deque(maxlen=50), deque(maxlen=200)
     malformed = 0
     try:
@@ -81,6 +91,8 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'daily_research': {'created': daily.get('created'), 'adopted': False,
+                               'independent_out_of_sample': False, 'comparisons': daily_rows},
             'limits': {k: config.get(k) for k in ('max_symbol_fraction', 'max_order_fraction', 'max_total_fraction')},
             'validation': {'created': validation.get('created'), 'passed': current and validation.get('portfolio_passed', False), 'current': current,
                            'comparisons': comparisons},

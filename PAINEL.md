@@ -49,3 +49,20 @@ O botão abre uma confirmação e, ao confirmar, cria o mesmo `STOP` usado pelo 
 Login tem limitação de tentativas, sessão de oito horas e proteção de origem para comandos. A consulta aos relatórios e o STOP exigem sessão autenticada. O servidor só disponibiliza arquivos de interface previamente definidos. Use Ctrl+C no terminal do painel para encerrá-lo; isso não desliga o bot.
 
 `--data-dir` permite apontar para uma pasta de dados existente. O STOP será gravado nessa pasta. Use somente uma instância de painel por pasta. Evite compartilhar a URL/código com outras pessoas: quem tiver acesso poderá consultar a simulação e acionar STOP.
+# Painel aberto sem atividade
+
+`python dashboard.py` inicia a interface. `python -m unittest -q` executa testes de código e termina; não inicia o acompanhamento do mercado.
+
+Para acompanhar sinais, mantenha o painel em um terminal e abra outro terminal na mesma pasta:
+
+```powershell
+python bot.py observe
+python bot.py watch
+```
+
+O primeiro comando confirma se a coleta funciona. Se indicar que a versão da sessão mudou, encerre qualquer observador antigo, execute `python bot.py observation-archive` para preservar o histórico e repita os comandos. STOP exige revisar a causa antes de qualquer retomada. O observador não gera ordens nem medições de patrimônio; coleta somente sinais de candles fechados. O mesmo candle não gera amostras duplicadas.
+
+Para gerar uma medição de patrimônio, encerre o observador com Ctrl+C, execute `python bot.py once` e depois reinicie `python bot.py watch`. A validação permanece obrigatória para ordens. `python bot.py performance` apenas exporta a medição já salva.
+
+A aba Estratégias também mostra o relatório das seis hipóteses diárias em `reports/2026-10-18-daily-results.json`. É um resultado salvo, separado da validação ativa. Para repetir a pesquisa use `python daily_research.py`; o painel lê os resultados na próxima atualização. Reinicie o painel e atualize a página após instalar mudanças do GitHub.
+

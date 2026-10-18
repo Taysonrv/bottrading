@@ -81,6 +81,20 @@ class DashboardTests(unittest.TestCase):
         (self.root / 'heartbeat.json').write_text(json.dumps({'time': time.time() - 400, 'phase': 'waiting'}))
         self.assertFalse(dashboard.snapshot(self.root)['activity']['recent'])
 
+    def test_daily_report_is_visible_but_cannot_approve_orders(self):
+        (self.root / 'reports').mkdir()
+        report = {'created': '2026-10-18T21:00:00Z', 'adopted': True,
+                  'comparisons': {'sma200_vol': {'continuous': {'return': .16, 'drawdown': .074},
+                    'final_reused': {'return': -.005}, 'qualified_historical': True}}}
+        (self.root / 'reports/2026-10-18-daily-results.json').write_text(json.dumps(report))
+        data = dashboard.snapshot(self.root)
+        self.assertEqual(data['daily_research']['comparisons'][0]['return'], .16)
+        self.assertFalse(data['daily_research']['adopted'])
+        self.assertFalse(data['diagnostics']['paper_ready'])
+
+    def test_missing_daily_report_is_empty(self):
+        self.assertEqual(dashboard.snapshot(self.root)['daily_research']['comparisons'], [])
+
     def test_invalid_partial_event_is_skipped(self):
         (self.root / 'events.jsonl').write_text('{broken\n{"kind":"cycle","time":"2026-10-17T00:00:00Z","equity":1000}\n')
         data = dashboard.snapshot(self.root)
