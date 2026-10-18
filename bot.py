@@ -89,7 +89,7 @@ def event(kind, **fields):
     with (ROOT / 'events.jsonl').open('a', encoding='utf-8') as stream:
         stream.write(json.dumps(item, ensure_ascii=False) + '\n')
     print(json.dumps(item, ensure_ascii=False))
-    if kind not in ('cycle', 'observation'):
+    if kind not in ('cycle', 'observation', 'decision'):
         path = ROOT / 'notifications-state.json'
         sent = read(path) if path.exists() else {}
         allowed, marker = notifications.should_send(item, sent)
@@ -201,6 +201,19 @@ def quote(symbol):
     return {'bid': bid, 'ask': ask}
 
 
+def approval(config, symbol):
+    """Read the current gate again immediately before a paper fill."""
+    path = ROOT / 'validation.json'
+    report = read(path) if path.exists() else {}
+    if report.get('fingerprint') != fingerprint(config):
+        return False, 'Validação ausente ou de outra versão'
+    if not 0 <= time.time() - report.get('created', 0) < 86400:
+        return False, 'Validação vencida ou com data futura'
+    if not report.get('portfolio_passed', False) or not report.get('results', {}).get(symbol, {}).get('passed', False):
+        return False, 'Estratégia reprovada na validação'
+    return True, 'Validação vigente'
+
+
 def cycle(config):
     state_path = ROOT / 'state.json'
     state = read(state_path) if state_path.exists() else {
@@ -219,18 +232,14 @@ def cycle(config):
         accounting.mark(state, prices, config['fee_rate'], config['slippage_rate'])
         save(state_path, state)
         raise
-    report_path = ROOT / 'validation.json'
-    report = read(report_path) if report_path.exists() else {}
-    valid = (report.get('fingerprint') == fingerprint(config) and
-             0 <= time.time() - report.get('created', 0) < 86400)
     for symbol, rows in history.items():
         stamp = str(rows[-1]['time'])
         if state['last'].get(symbol) == stamp:
             continue
         regime, target = research.target([r['close'] for r in rows][-200:], config['strategy'], signal)
-        passed = valid and report.get('portfolio_passed', False) and report.get('results', {}).get(symbol, {}).get('passed', False)
+        passed, reason = approval(config, symbol)
         if not passed:
-            event('blocked', symbol=symbol, reason='Validação ausente, reprovada ou vencida')
+            event('blocked', symbol=symbol, reason=reason)
             continue
         quotes[symbol] = quote(symbol)
         prices[symbol] = quotes[symbol]['bid']
@@ -242,7 +251,15 @@ def cycle(config):
         reference = quotes[symbol]['ask'] if buying else quotes[symbol]['bid']
         delta = execution.plan(equity, state['cash'], units, price, reference, exposure,
                                target, config, config['fee_rate'], config['slippage_rate'])
+        event('decision', symbol=symbol, regime=regime, target=target,
+              candle=stamp, intended_notional=delta,
+              reason='Ordem candidata; depende das travas finais' if abs(delta) >= 10 else
+                     'Sem ordem: alvo atingido ou valor abaixo do mínimo')
         if abs(delta) >= 10:
+            passed, reason = approval(config, symbol)
+            if not passed:
+                event('blocked', symbol=symbol, reason=reason)
+                continue
             try:
                 guard(state, equity)  # Checked immediately before EACH simulated order.
             except ValueError:
