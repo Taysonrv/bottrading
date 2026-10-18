@@ -87,6 +87,16 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(data['curve']), 1)
         self.assertEqual(data['malformed_events'], 1)
 
+    def test_defensive_research_is_reported_without_adopting_policy(self):
+        report = {'comparisons': {'trend_v1': {'defensive_research': {'adopted': False,
+            'reduce': {'return': -.1, 'drawdown': .16, 'defensive_orders': 3, 'remaining_exposure_usdt': 1}}}}}
+        (self.root / 'validation.json').write_text(json.dumps(report))
+        data = dashboard.snapshot(self.root)
+        result = data['validation']['comparisons'][0]['defensive'][0]
+        self.assertEqual(result['sales'], 3)
+        self.assertFalse(data['diagnostics']['paper_ready'])
+        self.assertFalse((self.root / 'state.json').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

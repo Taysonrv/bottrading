@@ -36,6 +36,10 @@ Se o celular não conseguir conectar, confirme o IP, a mesma rede e as regras do
 
 As telas atualizam a cada dez segundos. O horário de cada fonte é exibido; relatórios antigos não se tornam cotações atuais ao abrir a página. Saldos reais da Binance e arquivos de credenciais não são servidos pelo painel.
 
+A aba **Diagnóstico** explica separadamente as condições para observar sinais e para simular ordens. Uma validação reprovada bloqueia ordens, mas não impede observar; STOP impede ambos. Uma sessão de observação de outra versão exige arquivamento antes de iniciar outra. Nenhum diagnóstico remove travas ou inicia o bot. Ausência de heartbeat não comprova uma falha: confira se o painel aponta para a mesma pasta do processo.
+
+A aba **Estratégias** também mostra a comparação de saída defensiva quando existir no relatório salvo, incluindo retorno, drawdown, vendas e exposição remanescente. A política permanece experimental e não adotada. Relatórios antigos sem essa comparação mostram um estado vazio, sem inventar valores.
+
 O painel não inicia o observador nem o motor de simulação. Use outro terminal para `python bot.py watch` ou `python bot.py run`. Não execute os dois processos ao mesmo tempo. Após mudanças de código, siga o procedimento de arquivamento de observação em `COMANDOS-VSCODE.md`.
 
 ## Botão de desligar

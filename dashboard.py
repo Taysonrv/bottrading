@@ -12,6 +12,7 @@ from pathlib import Path
 import secrets
 import threading
 import time
+import diagnostics
 from urllib.parse import urlsplit
 
 ASSETS = Path(__file__).resolve().parent / 'dashboard_assets'
@@ -46,18 +47,34 @@ def snapshot(root):
         pass
     age = time.time() - heartbeat.get('time', 0)
     comparisons = []
+    config_ok, observation_current = False, False
     try:
         import bot
+        bot.config_check(config)
+        config_ok = True
         current = validation.get('fingerprint') == bot.fingerprint(config) and 0 <= time.time() - validation.get('created', 0) < 86400
-    except (OSError, ValueError, TypeError):
+        observation_current = observed.get('version') == bot.observer.identity(config, bot.fingerprint(config))
+    except (OSError, ValueError, TypeError, KeyError):
         current = False
     for name, result in validation.get('comparisons', {}).items():
         holdout = result.get('portfolio_holdout', {})
         continuous = result.get('continuous_portfolio', {})
-        comparisons.append({'name': name, 'passed': result.get('passed', False),
+        experimental = result.get('defensive_research', {})
+        defense = []
+        for key in ('freeze', 'reduce', 'reduce_stress', 'existing_freeze', 'existing_reduce'):
+            row = experimental.get(key)
+            if row:
+                defense.append({'scenario': key, 'return': row.get('return'), 'drawdown': row.get('drawdown'),
+                                'remaining_exposure': row.get('remaining_exposure_usdt'), 'sales': row.get('defensive_orders')})
+        comparisons.append({'name': name, 'passed': result.get('passed', False), 'defensive': defense,
                             'return': holdout.get('return'), 'benchmark': holdout.get('benchmark'),
                             'drawdown': continuous.get('drawdown', holdout.get('drawdown'))})
-    return {'as_of': time.time(), 'mode': 'paper', 'stop': (root / 'STOP').exists(),
+    recent = 0 <= age <= 180 and heartbeat.get('phase') != 'stopped'
+    health = diagnostics.assess(config_ok=config_ok, stop=(root / 'STOP').exists(), halted=state.get('halted', False),
+        validation_exists=bool(validation), validation_current=current, validation_passed=validation.get('portfolio_passed', False),
+        observation_exists=bool(observed), observation_current=observation_current,
+        activity_recent=recent, performance_exists=bool(state.get('performance')))
+    return {'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
             'halted': state.get('halted', False),
             'activity': {'recent': 0 <= age <= 180 and heartbeat.get('phase') != 'stopped',
                          'time': heartbeat.get('time'), 'phase': heartbeat.get('phase'), 'command': heartbeat.get('command')},
