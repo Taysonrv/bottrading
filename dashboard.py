@@ -67,6 +67,7 @@ def snapshot(root):
     heartbeat = read(root, 'heartbeat.json')
     lab = read(root, 'reports/local/live-paper.json')
     exit_trial = read(root, 'reports/local/exit-comparison.json')
+    micro_trial = read(root, 'reports/local/micro-results.json')
     lab_curve,lab_orders = lab_history(root,lab)
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
@@ -148,6 +149,9 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'micro_trial': {'created':micro_trial.get('created'),'comparisons':[
+                {k:metric(r.get(k)) for k in ('target','stress','pnl','buy_count','sell_count','drawdown')}
+                for r in micro_trial.get('comparisons',[])]},
             'exit_trial': {'created':exit_trial.get('created'),'start':exit_trial.get('start'),
                 'end':exit_trial.get('end_exclusive'),'comparisons':[
                     {'policy':r.get('policy'),'pnl':metric(r.get('return_usdt')),
