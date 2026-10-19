@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
 let csrf = '', timer, busy = false;
+let labMarketState=null;
 const number = (value, digits=2) => Number.isFinite(value) ? value.toLocaleString('pt-BR', {minimumFractionDigits:digits, maximumFractionDigits:digits}) : '—';
 const percent = v => Number.isFinite(v) ? number(v*100) + '%' : '—';
 const date = value => { if(!value) return 'Sem leitura'; const d=new Date(typeof value==='number'?value*1000:value); return Number.isNaN(d.getTime())?'Sem leitura':d.toLocaleString('pt-BR'); };
@@ -26,6 +27,7 @@ function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(t
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#2a382e" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
 function render(data){const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
+ labMarketState=lab;
  const usingLab=Boolean(lab.started&&lab.performance);
  const p=usingLab?lp:(data.performance||{});
  const selectedHalted=usingLab?Boolean(lp.halted):data.halted;
@@ -98,4 +100,3 @@ $('login-form').addEventListener('submit',async e=>{e.preventDefault();const but
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));$('page-name').textContent=button.textContent.trim();$('heading').textContent={overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
-

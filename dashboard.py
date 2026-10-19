@@ -13,7 +13,8 @@ import secrets
 import threading
 import time
 import diagnostics
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit,parse_qs
+import market_view
 
 ASSETS = Path(__file__).resolve().parent / 'dashboard_assets'
 
@@ -179,6 +180,8 @@ class DashboardServer(ThreadingHTTPServer):
         self.password_hash = self.digest(password)
         self.sessions, self.attempts = {}, {}
         self.mutex = threading.Lock()
+        self.market_mutex = threading.Lock()
+        self.market_cache = {}
 
     def digest(self, password):
         return hashlib.pbkdf2_hmac('sha256', password.encode(), self.salt, 120000)
@@ -228,9 +231,10 @@ class Handler(BaseHTTPRequestHandler):
         if not self.boundary():
             return
         path = urlsplit(self.path).path
-        if path in ('/', '/app.js', '/style.css'):
+        if path in ('/', '/app.js', '/market.js', '/style.css'):
             filename, mime = {'/': ('index.html', 'text/html; charset=utf-8'),
                               '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+                              '/market.js': ('market.js', 'text/javascript; charset=utf-8'),
                               '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
             return self.send(200, (ASSETS / filename).read_bytes(), mime)
         session = self.session()
@@ -241,6 +245,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {'csrf': session['csrf'], 'data': snapshot(self.server.root)})
             except (ValueError, TypeError):
                 return self.send(503, {'error': 'Relatórios temporariamente indisponíveis'})
+        if path == '/api/lab-market':
+            symbol=parse_qs(urlsplit(self.path).query).get('symbol',[''])[0]
+            if symbol not in ('BTCUSDT','ETHUSDT'):
+                return self.send(400,{'error':'Ativo não permitido'})
+            try:
+                with self.server.market_mutex:
+                    cached=self.server.market_cache.get(symbol)
+                    if not cached or time.time()-cached['as_of']>=30:
+                        cached=market_view.load(symbol)
+                        self.server.market_cache[symbol]=cached
+                return self.send(200,cached)
+            except (OSError,ValueError,KeyError,TypeError):
+                return self.send(503,{'error':'Candles indisponíveis; nenhuma decisão de trading foi alterada.'})
         return self.send(404, {'error': 'Não encontrado'})
 
     def do_POST(self):

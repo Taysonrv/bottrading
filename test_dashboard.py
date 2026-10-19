@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import dashboard
 
 
@@ -42,6 +43,20 @@ class DashboardTests(unittest.TestCase):
 
     def test_status_requires_authentication(self):
         self.assertEqual(self.request('GET', '/api/status')[0], 401)
+
+    def test_candle_endpoint_requires_authentication_and_allowed_pair(self):
+        self.assertEqual(self.request('GET','/api/lab-market?symbol=BTCUSDT')[0],401)
+        with patch.object(dashboard.market_view,'load') as fetch:
+            self.assertEqual(self.request('GET','/api/lab-market?symbol=OTHER',headers=self.login())[0],400)
+            fetch.assert_not_called()
+
+    def test_public_candles_are_cached_without_trading_side_effects(self):
+        headers=self.login()
+        with patch.object(dashboard.market_view,'load',return_value={'as_of':time.time(),'candles':[]}) as fetch:
+            self.assertEqual(self.request('GET','/api/lab-market?symbol=BTCUSDT',headers=headers)[0],200)
+            self.assertEqual(self.request('GET','/api/lab-market?symbol=BTCUSDT',headers=headers)[0],200)
+            self.assertEqual(fetch.call_count,1)
+        self.assertFalse((self.root/'state.json').exists())
 
     def test_stop_requires_session_and_csrf(self):
         self.assertEqual(self.request('POST', '/api/stop', {})[0], 403)

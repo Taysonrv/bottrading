@@ -24,6 +24,12 @@ O computador precisa ficar ligado, sem suspensão e com internet. Se uma consult
 
 O painel deve usar a mesma pasta de dados do laboratório. A visão geral mostra um cartão separado, “Laboratório noturno”. Não confundir com os cartões da carteira principal. O botão Desligar bot aciona STOP e também encerra o laboratório dessa pasta.
 
+O painel também consulta candles públicos de 15 minutos para BTC/ETH, com marcações das ordens simuladas e linhas de custo médio e equilíbrio estimado. Os candles são apenas visualização: não mudam o timeframe diário da estratégia. O último candle em formação fica translúcido.
+
+O equilíbrio estimado é custo contabilizado dividido pela quantidade e pelos fatores de taxa/slippage de saída (0,1% cada). Não é take-profit nem ordem pendente. O resultado depende de conseguir o bid e os custos modelados.
+
+A referência para o próximo fechamento é a média dos últimos 199 fechamentos diários. Para uma regra fechamento > SMA200 que inclui o próprio novo fechamento, esse é o ponto de igualdade na próxima análise. Fechar na referência ou abaixo dela pede alvo zero, mas o limite por ordem impede garantir saída imediata. A volatilidade também pode ajustar a exposição. A consulta pública usa cache de 30 segundos, autenticação do painel e apenas os dois símbolos permitidos; uma indisponibilidade do gráfico não altera o motor de simulação.
+
 ## Execução iniciada nesta sessão
 
 O experimento foi iniciado no checkout de trabalho do Codex, com painel próprio em `http://127.0.0.1:8768`, por dez horas, com término previsto em **19/10/2026 às 08:23 (America/Sao_Paulo)**. Não inicie outra cópia no projeto original enquanto esta sessão estiver ativa. Arquivos operacionais e código de acesso do painel não são publicados no GitHub.
