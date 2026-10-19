@@ -7,7 +7,7 @@ python -m unittest test_limit_simulator -v
 python limit_demo.py
 ```
 
-O segundo comando executa quatro cenários construídos e salva `reports/2026-10-18-limit-acceptance.json` e `.md`. Não são resultados de mercado. Preços e filtros são artificiais, mesmo usando o rótulo BTCUSDT.
+O segundo comando executa quatro cenários construídos e salva `reports/local/2026-10-18-limit-acceptance.json` e `.md`. Não são resultados de mercado. Preços e filtros são artificiais, mesmo usando o rótulo BTCUSDT.
 
 ## Implementado
 

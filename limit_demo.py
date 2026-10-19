@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from limit_simulator import LimitBook, fixture_filters
+from local_reports import destination
 
 
 def scenarios():
@@ -46,7 +47,7 @@ def main():
     report = dict(capital_usdt=1000, synthetic=True, historical_backtest=False,
                   adopted=False, prices_are_fictional=True, scenarios=scenarios())
     root = Path(__file__).resolve().parent
-    output = root/'reports/2026-10-18-limit-acceptance.json'
+    output = destination(root, '2026-10-18-limit-acceptance.json')
     output.write_text(json.dumps(report, indent=2, default=str), encoding='utf-8')
     lines = ['# Aceitação do simulador de ordens limitadas', '',
              '**Dados e preços inteiramente artificiais. Não é backtest, previsão de lucro ou aprovação de estratégia.**',

@@ -25,16 +25,22 @@ def read(root, name, fallback=None):
         return {} if fallback is None else fallback
 
 
+def research_report(root, filename):
+    local = 'reports/local/'+filename
+    # An unreadable local report is unavailable, not silently replaced by an old snapshot.
+    return read(root, local if (root/local).exists() else 'reports/'+filename)
+
+
 def snapshot(root):
     state = read(root, 'state.json')
     config = read(root, 'config.json')
     validation = read(root, 'validation.json')
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
-    daily = read(root, 'reports/2026-10-18-daily-results.json')
-    grid = read(root, 'reports/2026-10-18-grid-results.json')
-    acceptance = read(root, 'reports/2026-10-18-limit-acceptance.json')
-    replay_report = read(root, 'reports/2026-10-18-grid-replay.json')
+    daily = research_report(root, '2026-10-18-daily-results.json')
+    grid = research_report(root, '2026-10-18-grid-results.json')
+    acceptance = research_report(root, '2026-10-18-limit-acceptance.json')
+    replay_report = research_report(root, '2026-10-18-grid-replay.json')
     grid_rows = []
     for name, result in grid.get('comparisons', {}).items():
         row = result.get('scenarios', {}).get('continuous', {})

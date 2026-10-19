@@ -111,6 +111,21 @@ class DashboardTests(unittest.TestCase):
         self.assertIsNone(data['performance'])
         self.assertFalse(data['diagnostics']['paper_ready'])
 
+    def test_local_report_takes_precedence_without_changing_snapshot(self):
+        (self.root/'reports/local').mkdir(parents=True)
+        name = '2026-10-18-grid-replay.json'
+        (self.root/'reports'/name).write_text('{"events":1000}')
+        (self.root/'reports/local'/name).write_text('{"events":63458}')
+        self.assertEqual(dashboard.snapshot(self.root)['grid_replay']['events'], 63458)
+        self.assertEqual(json.loads((self.root/'reports'/name).read_text())['events'],1000)
+
+    def test_invalid_local_report_does_not_show_old_snapshot_as_current(self):
+        (self.root/'reports/local').mkdir(parents=True)
+        name = '2026-10-18-grid-replay.json'
+        (self.root/'reports'/name).write_text('{"events":1000}')
+        (self.root/'reports/local'/name).write_text('{broken')
+        self.assertIsNone(dashboard.snapshot(self.root)['grid_replay']['events'])
+
     def test_limit_fixture_decimals_and_grid_are_visible_but_never_approve(self):
         (self.root / 'reports').mkdir()
         (self.root / 'reports/2026-10-18-limit-acceptance.json').write_text(json.dumps({

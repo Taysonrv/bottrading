@@ -8,6 +8,7 @@ import time
 import urllib.parse
 import urllib.request
 import research
+from local_reports import destination
 
 DAY = 86_400_000
 RULES = ('sma200', 'momentum90', 'breakout55_20')
@@ -110,7 +111,7 @@ def main():
                   code_hash=hashlib.sha256(b''.join((root / name).read_bytes() for name in
                                           ('daily_research.py', 'research.py', 'execution.py'))).hexdigest(),
                   config=config, comparisons=comparisons)
-    output = root / 'reports' / '2026-10-18-daily-results.json'
+    output = destination(root, '2026-10-18-daily-results.json')
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
     lines = ['# Hipóteses diárias — resultado histórico', '', report['note'], '',
              'Nenhuma adoção ou liberação para trading. Seis tentativas, sem otimização.', '',

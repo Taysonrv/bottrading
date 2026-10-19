@@ -9,7 +9,7 @@ python daily_research.py
 
 Usa apenas dados públicos. Não precisa de chave Binance. Não inicia o bot, não envia ordens, não muda a configuração e não escreve `validation.json`.
 
-Gera `reports/2026-10-18-daily-results.json` e `.md`. O nome identifica o experimento; executar novamente substitui os resultados locais com o corte UTC mais recente. Preserve uma cópia se quiser comparar execuções.
+Gera `reports/local/2026-10-18-daily-results.json` e `.md`. O nome identifica o experimento; executar novamente substitui os resultados locais com o corte UTC mais recente. Preserve uma cópia se quiser comparar execuções.
 
 Compara SMA de 200 dias, momentum de 90 dias e rompimento de 55 dias com saída de 20 dias. Cada regra tem exposição fixa ou ajustada pela volatilidade dos últimos 30 retornos diários, sem multiplicador acima de 1. Os limites de ordem e exposição são os de `config.json`.
 

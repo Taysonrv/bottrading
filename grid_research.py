@@ -8,6 +8,7 @@ import statistics
 import time
 import urllib.request
 import research
+from local_reports import destination
 
 LEVELS = 8
 LOOKBACK = 168
@@ -111,7 +112,7 @@ def main():
                            ('grid_research.py', 'research.py', 'execution.py'))).hexdigest(),
               'data_hash': hashlib.sha256(json.dumps(histories, sort_keys=True).encode()).hexdigest(),
               'comparisons': evaluate(histories, config)}
-    output = root/'reports/2026-10-18-grid-results.json'
+    output = destination(root, '2026-10-18-grid-results.json')
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
     lines = ['# Grid por inventário — pesquisa histórica', '',
              'Simulação com sinais no fechamento e execução na abertura seguinte, não reprodução do Grid nativo da Binance.',

@@ -9,6 +9,7 @@ import urllib.parse
 import time
 from grid_controller import GridEpisode
 from limit_simulator import D, LimitBook
+from local_reports import destination
 
 
 def download_period(get, symbol, start, end, max_pages=300, progress=None):
@@ -151,7 +152,7 @@ def main():
     report['created'] = dt.datetime.now(dt.timezone.utc).isoformat()
     report['code_hash'] = hashlib.sha256(b''.join((root/name).read_bytes() for name in
         ('grid_replay.py', 'grid_controller.py', 'limit_simulator.py'))).hexdigest()
-    output = root/'reports/2026-10-18-grid-replay.json'
+    output = destination(root, '2026-10-18-grid-replay.json')
     output.write_text(json.dumps(report, indent=2, default=str), encoding='utf-8')
     s = report['summary']
     seconds = (report['last_time']-report['first_time'])/1000

@@ -7,7 +7,7 @@ python -m unittest test_grid_research -v
 python grid_research.py
 ```
 
-Usa apenas dados públicos BTCUSDT/ETHUSDT, com corte horário UTC comum, 365 dias e exclusão da vela aberta. Produz os resultados `.json` e `.md` em `reports/2026-10-18-grid-results`. Nova execução substitui esses arquivos locais; o nome identifica o experimento, não garante a data da coleta. A data efetiva consta dentro do relatório.
+Usa apenas dados públicos BTCUSDT/ETHUSDT, com corte horário UTC comum, 365 dias e exclusão da vela aberta. Produz os resultados `.json` e `.md` em `reports/local/2026-10-18-grid-results`. Nova execução substitui esses arquivos locais; o nome identifica o experimento, não garante a data da coleta. A data efetiva consta dentro do relatório.
 
 ## Hipóteses
 

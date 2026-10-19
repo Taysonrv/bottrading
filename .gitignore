@@ -24,3 +24,4 @@ heartbeat.json
 defensive-report.md
 *.tmp
 replay-data/
+reports/local/
