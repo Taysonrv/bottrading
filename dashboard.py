@@ -37,6 +37,7 @@ def snapshot(root):
     validation = read(root, 'validation.json')
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
+    lab = read(root, 'reports/local/live-paper.json')
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
     acceptance = research_report(root, '2026-10-18-limit-acceptance.json')
@@ -117,6 +118,10 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'paper_lab': {'started': lab.get('started'), 'end': lab.get('end'), 'updated': lab.get('updated'),
+                           'phase': lab.get('phase'), 'error': lab.get('error'),
+                           'signals': lab.get('signals', {}), 'performance': lab.get('performance'),
+                           'experimental': True},
             'test_budget': {'configured_cash': config.get('paper_usdt'), 'measured': bool(state.get('performance'))},
             'grid_research': {'created': grid.get('created'), 'comparisons': grid_rows},
             'limit_acceptance': {'synthetic': True, 'capital': metric(acceptance.get('capital_usdt')),

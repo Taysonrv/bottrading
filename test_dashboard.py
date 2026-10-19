@@ -126,6 +126,15 @@ class DashboardTests(unittest.TestCase):
         (self.root/'reports/local'/name).write_text('{broken')
         self.assertIsNone(dashboard.snapshot(self.root)['grid_replay']['events'])
 
+    def test_experimental_lab_does_not_override_approved_wallet(self):
+        (self.root/'reports/local').mkdir(parents=True)
+        (self.root/'reports/local/live-paper.json').write_text(json.dumps({
+            'started':100,'phase':'waiting','performance':{'equity':999,'orders':1}}))
+        data=dashboard.snapshot(self.root)
+        self.assertEqual(data['paper_lab']['performance']['equity'],999)
+        self.assertIsNone(data['performance'])
+        self.assertFalse(data['diagnostics']['paper_ready'])
+
     def test_limit_fixture_decimals_and_grid_are_visible_but_never_approve(self):
         (self.root / 'reports').mkdir()
         (self.root / 'reports/2026-10-18-limit-acceptance.json').write_text(json.dumps({
