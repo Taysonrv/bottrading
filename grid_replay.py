@@ -76,6 +76,8 @@ def replay(rows, filters, symbol='BTCUSDT', stop_requested=None):
     book = LimitBook({symbol: rows[0]['p']}, filters, cash=1000, stop_requested=stop_requested)
     book.trade(rows[0]['a'], symbol, rows[0]['p'], 0, 'SELL' if rows[0]['m'] else 'BUY')
     episode = GridEpisode(book, symbol)
+    initial_buys = [o['price'] for o in book.active() if o['side']=='BUY']
+    first_buy = max(initial_buys) if initial_buys else None
     for row in rows[1:]:
         episode.advance(row['a'], row['p'], row['q'], 'SELL' if row['m'] else 'BUY')
     marked = book.summary()
@@ -83,6 +85,17 @@ def replay(rows, filters, symbol='BTCUSDT', stop_requested=None):
     active_at_cutoff = marked['active_orders']
     reserved_at_cutoff = marked['reserved_cash']
     book.cancel_all('fim do replay')
+    minimum, maximum = min(D(r['p']) for r in rows), max(D(r['p']) for r in rows)
+    crossed = sum(1 for r in rows[1:] if first_buy is not None and D(r['p']) < first_buy)
+    aggressive_crossed = sum(1 for r in rows[1:] if first_buy is not None and D(r['p']) < first_buy and r['m'])
+    diagnostics = dict(minimum_price=minimum, maximum_price=maximum, initial_first_buy=first_buy,
+        initial_buy_orders=len(initial_buys), events_below_initial_first_buy=crossed,
+        aggressive_sell_events_below_initial_first_buy=aggressive_crossed,
+        placement_failures=len(episode.failures),
+        explanation=('Houve preenchimentos simulados.' if book.fills else
+                     'Nenhuma compra inicial foi aceita; confira as recusas.' if first_buy is None else
+                     'O preço não atravessou o primeiro nível de compra.' if crossed==0 else
+                     'O preço atravessou o nível, mas não houve fill; confira agressor, volume, cancelamentos e travas.'))
     return dict(capital_usdt=1000, symbol=symbol, smoke_test_only=True, adopted=False,
                 approved_for_trading=False, first_time=rows[0]['T'], last_time=rows[-1]['T'],
                 first_id=rows[0]['a'], last_id=rows[-1]['a'], events=len(rows),
@@ -90,6 +103,8 @@ def replay(rows, filters, symbol='BTCUSDT', stop_requested=None):
                 summary=book.summary(), completed_cycles=episode.completed_cycles,
                 episode_closed=episode.closed, placement_failures=episode.failures,
                 fills=book.fills, filters=filters, anchor=episode.anchor,
+                orders=list(book.orders.values()), diagnostics=diagnostics,
+                net_liquidation_estimate=book.cash+book.positions[symbol]*book.prices[symbol]*(1-book.fee),
                 parameters=dict(spacing='.005', levels=4, order_usdt=25, participation='.1', fee='.001'),
                 data_hash=hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest())
 
@@ -148,6 +163,10 @@ def main():
         f"Preenchimentos: {s['fills']}. Ciclos completos compra/venda: {report['completed_cycles']}.",
         f"Ordens abertas antes do encerramento: {report['active_at_cutoff']}. Reserva antes do encerramento: {report['reserved_at_cutoff']:.5f} USDT.",
         f"Ordens após cancelamento final: {s['active_orders']}. Episódio rompido/travado: {report['episode_closed']}.", '',
+        f"Diagnóstico: {report['diagnostics']['explanation']}",
+        f"Preço mínimo/máximo: {report['diagnostics']['minimum_price']} / {report['diagnostics']['maximum_price']} USDT. Primeiro nível inicial de compra: {report['diagnostics']['initial_first_buy']}.",
+        f"Eventos abaixo do primeiro nível: {report['diagnostics']['events_below_initial_first_buy']}; com agressor vendedor: {report['diagnostics']['aggressive_sell_events_below_initial_first_buy']}; recusas de ordens: {report['diagnostics']['placement_failures']}.",
+        f"Patrimônio líquido estimado após taxa de saída de inventário: {report['net_liquidation_estimate']:.5f} USDT (sem slippage de liquidação).", '',
         'Faixa e degraus definidos apenas pelo primeiro negócio, sem ajuste após consultar os resultados.',
         'Ao romper ±3% da âncora, cancela ordens e mantém inventário marcado; não implementa liquidação ou reinício automático.',
         'Usa filtros atuais públicos de preço/lote/mínimo. Não reproduz todos os filtros e a fila da Binance.',

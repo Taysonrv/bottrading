@@ -10,6 +10,25 @@ def tape(prices):
 
 
 class GridReplayTests(unittest.TestCase):
+    def test_diagnostics_distinguish_unreached_levels(self):
+        r = replay(tape([100,99.9,100.1]),fixture_filters())
+        self.assertEqual(r['diagnostics']['events_below_initial_first_buy'],0)
+        self.assertIn('não atravessou',r['diagnostics']['explanation'])
+
+    def test_diagnostics_distinguish_insufficient_execution_volume(self):
+        rows = tape([100,99,99.1])
+        for row in rows:
+            row['q'] = '.000001'
+        r = replay(rows,fixture_filters())
+        self.assertEqual(r['summary']['fills'],0)
+        self.assertGreater(r['diagnostics']['aggressive_sell_events_below_initial_first_buy'],0)
+        self.assertIn('não houve fill',r['diagnostics']['explanation'])
+
+    def test_full_order_journal_keeps_cancellation_and_remaining(self):
+        r = replay(tape([100,99,100.1]),fixture_filters())
+        self.assertTrue(any(o['status']=='FILLED' for o in r['orders']))
+        self.assertTrue(any(o['status']=='CANCELED' for o in r['orders']))
+        self.assertEqual(r['net_liquidation_estimate'],r['summary']['equity'])
     def test_pagination_keeps_events_with_same_millisecond(self):
         from urllib.parse import urlparse, parse_qs
         first = [dict(a=i, T=100, p='100', q='1', m=True) for i in range(1,1001)]

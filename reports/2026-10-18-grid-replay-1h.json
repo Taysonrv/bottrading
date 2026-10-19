@@ -1,0 +1,113 @@
+{
+  "capital_usdt": 1000,
+  "symbol": "BTCUSDT",
+  "smoke_test_only": true,
+  "adopted": false,
+  "approved_for_trading": false,
+  "first_time": 1792365240202,
+  "last_time": 1792368839789,
+  "first_id": 4092717235,
+  "last_id": 4092780692,
+  "events": 63458,
+  "active_at_cutoff": 4,
+  "reserved_at_cutoff": "98.6123815677000000000",
+  "summary": {
+    "cash": "1000",
+    "positions": {
+      "BTCUSDT": "0"
+    },
+    "equity": "1000.00000000",
+    "fees": "0",
+    "reserved_cash": "0",
+    "active_orders": 0,
+    "fills": 0,
+    "stopped": false,
+    "halted": false,
+    "drawdown": "0"
+  },
+  "completed_cycles": 0,
+  "episode_closed": false,
+  "placement_failures": [],
+  "fills": [],
+  "filters": {
+    "BTCUSDT": {
+      "tick": "0.01000000",
+      "step": "0.00001000",
+      "min_qty": "0.00001000",
+      "max_qty": "9000.00000000",
+      "min_price": "0.01000000",
+      "max_price": "1000000.00000000",
+      "min_notional": "5.00000000",
+      "max_orders": 200
+    }
+  },
+  "anchor": "81778.01000000",
+  "orders": [
+    {
+      "id": 1,
+      "symbol": "BTCUSDT",
+      "side": "BUY",
+      "price": "81369.11000000",
+      "quantity": "0.00030000",
+      "remaining": "0.00030000",
+      "status": "CANCELED",
+      "submitted_after": 4092717235
+    },
+    {
+      "id": 2,
+      "symbol": "BTCUSDT",
+      "side": "BUY",
+      "price": "80960.22000000",
+      "quantity": "0.00030000",
+      "remaining": "0.00030000",
+      "status": "CANCELED",
+      "submitted_after": 4092717235
+    },
+    {
+      "id": 3,
+      "symbol": "BTCUSDT",
+      "side": "BUY",
+      "price": "80551.33000000",
+      "quantity": "0.00031000",
+      "remaining": "0.00031000",
+      "status": "CANCELED",
+      "submitted_after": 4092717235
+    },
+    {
+      "id": 4,
+      "symbol": "BTCUSDT",
+      "side": "BUY",
+      "price": "80142.44000000",
+      "quantity": "0.00031000",
+      "remaining": "0.00031000",
+      "status": "CANCELED",
+      "submitted_after": 4092717235
+    }
+  ],
+  "diagnostics": {
+    "minimum_price": "81700.00000000",
+    "maximum_price": "82244.51000000",
+    "initial_first_buy": "81369.11000000",
+    "initial_buy_orders": 4,
+    "events_below_initial_first_buy": 0,
+    "aggressive_sell_events_below_initial_first_buy": 0,
+    "placement_failures": 0,
+    "explanation": "O pre\u00e7o n\u00e3o atravessou o primeiro n\u00edvel de compra."
+  },
+  "net_liquidation_estimate": "1000.00000000000",
+  "parameters": {
+    "spacing": ".005",
+    "levels": 4,
+    "order_usdt": 25,
+    "participation": ".1",
+    "fee": ".001"
+  },
+  "data_hash": "aa4a37f2b0074e6c89942c387ab0edbb751a0fd44c7e89d6c8600370c817fa8c",
+  "requested_period": {
+    "start": 1792365240000,
+    "end_exclusive": 1792368840000,
+    "complete": true
+  },
+  "created": "2026-10-19T00:18:16.085101+00:00",
+  "code_hash": "8a2307393271c87dc4a6d3451cc88d2ad4cc15f55adff38156e727a5ce41bea6"
+}

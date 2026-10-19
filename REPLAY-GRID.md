@@ -40,6 +40,10 @@ Fonte: [dados de mercado da API Spot](https://developers.binance.com/en/docs/cat
 
 Produz `reports/2026-10-18-grid-replay.json` e `.md`, substituindo esses arquivos a cada execução. Inclui período efetivo, IDs, hashes do código/dados, fills, filtros, saldo, inventário, erros de reposição e ordens abertas antes do corte. Ao finalizar, cancela ordens pendentes e libera reservas. Não realiza venda de encerramento nem estima anualização.
 
+O diagnóstico também registra mínima/máxima da amostra, primeiro nível de compra aceito, eventos estritamente abaixo desse nível e quantos tinham agressor vendedor. Distingue nível não alcançado de nível atravessado sem execução; não trata toda ausência de fill como falha da estratégia. Esses contadores descrevem o nível inicial, não comprovam que uma ordem permaneceu elegível em todos os eventos. Volume mínimo, cancelamentos e travas também precisam ser examinados.
+
+O JSON guarda o diário completo das ordens: preço, quantidade, remanescente e estado final, inclusive ordens canceladas no corte. A estimativa líquida adicional desconta a taxa configurada sobre o inventário final; não modela slippage ou garante liquidez de saída. Esse valor não altera o patrimônio marcado exibido no painel.
+
 A aba Estratégias mostra esse relatório com o rótulo Teste operacional. Nunca substitui os cartões da carteira ou a validação de estratégia.
 
 Para atualizar o painel: encerre somente `dashboard.py` com Ctrl+C, execute `git pull --ff-only`, inicie `python dashboard.py` novamente e atualize a página. O observador pode continuar aberto: esta etapa não altera seu código ou configuração.
