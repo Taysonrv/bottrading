@@ -135,6 +135,27 @@ class DashboardTests(unittest.TestCase):
         self.assertIsNone(data['performance'])
         self.assertFalse(data['diagnostics']['paper_ready'])
 
+    def test_lab_orders_and_curve_are_read_without_exposing_extra_fields(self):
+        (self.root/'reports/local').mkdir(parents=True)
+        (self.root/'reports/local/live-paper-events.jsonl').write_text(
+            '{broken\n'+json.dumps({'time':100,'orders':[{'side':'BUY','symbol':'BTCUSDT',
+            'quantity':.001,'price':80000,'fee':.08,'secret':'not-exposed'}]})+'\n')
+        lab={'curve':[{'time':99,'equity':1000},{'time':100,'equity':999},{'time':101,'equity':float('nan')}]}
+        curve,orders=dashboard.lab_history(self.root,lab)
+        self.assertEqual(len(curve),2)
+        self.assertEqual(len(orders),1)
+        self.assertEqual(orders[0]['side'],'BUY')
+        self.assertNotIn('secret',orders[0])
+
+    def test_lab_order_history_is_bounded_and_newest_first(self):
+        (self.root/'reports/local').mkdir(parents=True)
+        rows=[json.dumps({'time':i,'orders':[{'side':'BUY','symbol':'BTCUSDT','price':100}]})
+              for i in range(210)]
+        (self.root/'reports/local/live-paper-events.jsonl').write_text('\n'.join(rows))
+        _,orders=dashboard.lab_history(self.root,{})
+        self.assertEqual(len(orders),200)
+        self.assertEqual(orders[0]['time'],209)
+
     def test_limit_fixture_decimals_and_grid_are_visible_but_never_approve(self):
         (self.root / 'reports').mkdir()
         (self.root / 'reports/2026-10-18-limit-acceptance.json').write_text(json.dumps({

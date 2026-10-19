@@ -31,6 +31,33 @@ def research_report(root, filename):
     return read(root, local if (root/local).exists() else 'reports/'+filename)
 
 
+def lab_history(root, lab):
+    import math
+    def finite(value):
+        return type(value) in (float,int) and math.isfinite(value)
+    curve = [{'time': p['time'], 'equity': p['equity']} for p in lab.get('curve', [])
+             if isinstance(p,dict) and finite(p.get('time')) and finite(p.get('equity'))]
+    orders = deque(maxlen=200)
+    try:
+        with (root/'reports/local/live-paper-events.jsonl').open(encoding='utf-8') as stream:
+            for line in stream:
+                try:
+                    row = json.loads(line)
+                    if not finite(row.get('time')) or not isinstance(row.get('orders'),list):
+                        continue
+                    for order in row['orders']:
+                        if not isinstance(order,dict) or order.get('side') not in ('BUY','SELL'):
+                            continue
+                        orders.append({'time': row['time'], 'symbol':order.get('symbol'), 'side':order['side'],
+                            **{k: order.get(k) if finite(order.get(k)) else None for k in
+                               ('quantity','price','fee','slippage_cost','realized_pnl')}})
+                except (ValueError,TypeError,AttributeError):
+                    continue
+    except OSError:
+        pass
+    return curve[-1500:],list(reversed(orders))
+
+
 def snapshot(root):
     state = read(root, 'state.json')
     config = read(root, 'config.json')
@@ -38,6 +65,7 @@ def snapshot(root):
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
     lab = read(root, 'reports/local/live-paper.json')
+    lab_curve,lab_orders = lab_history(root,lab)
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
     acceptance = research_report(root, '2026-10-18-limit-acceptance.json')
@@ -121,6 +149,7 @@ def snapshot(root):
             'paper_lab': {'started': lab.get('started'), 'end': lab.get('end'), 'updated': lab.get('updated'),
                            'phase': lab.get('phase'), 'error': lab.get('error'),
                            'signals': lab.get('signals', {}), 'performance': lab.get('performance'),
+                           'curve':lab_curve, 'orders':lab_orders,
                            'experimental': True},
             'test_budget': {'configured_cash': config.get('paper_usdt'), 'measured': bool(state.get('performance'))},
             'grid_research': {'created': grid.get('created'), 'comparisons': grid_rows},

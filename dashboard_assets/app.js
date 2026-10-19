@@ -8,6 +8,18 @@ const empty = (title, detail='') => `<div class="empty"><strong>${escape(title)}
 const names={regime_v1:'Regimes de mercado',trend_v1:'Tendência por médias',breakout_v1:'Rompimento de máxima'};
 const regimes={tranquilo:'Tranquilo',lateral:'Lateral',nervoso:'Volátil',queda_forte:'Queda forte',aquecimento:'Aquecimento'};
 function table(headers, rows){return `<table><thead><tr>${headers.map(h=>`<th>${escape(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
+function labChart(id,points,mode){
+ const target=$(id),valid=points.filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.equity));
+ if(valid.length<2){target.innerHTML=empty('Aguardando duas medições.','O gráfico usa somente valores registrados nesta sessão.');return;}
+ let peak=1000;
+ const values=valid.map(p=>{peak=Math.max(peak,p.equity);return mode==='drawdown'?(1-p.equity/peak)*100:p.equity;});
+ const min=Math.min(...values),max=Math.max(...values),span=max-min||1;
+ const first=valid[0].time,last=valid.at(-1).time;
+ const xy=values.map((v,i)=>[20+(valid[i].time-first)/(last-first||1)*650,25+(max-v)/span*120]);
+ const path=xy.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');
+ const unit=mode==='drawdown'?'%':' USDT',label=mode==='drawdown'?'Drawdown da carteira fictícia':'Patrimônio da carteira fictícia';
+ target.innerHTML=`<svg viewBox="0 0 700 185" role="img" aria-label="${label}">${[25,85,145].map(y=>`<path d="M20 ${y} H670" stroke="#2a382e" stroke-dasharray="3 6"/>`).join('')}<path d="${path}" fill="none" stroke="${mode==='drawdown'?'#d4b983':'#b4f8cc'}" stroke-width="2.5"/><text x="20" y="15" fill="#a4b6aa" font-size="10">${escape(number(max,mode==='drawdown'?4:2)+unit)}</text><text x="20" y="163" fill="#a4b6aa" font-size="10">${escape(number(min,mode==='drawdown'?4:2)+unit)}</text></svg><p class="panel-note">${escape(date(first))} → ${escape(date(last))} · ${valid.length} medições</p>`;
+}
 async function api(path, body){const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},body:body?JSON.stringify(body):undefined});let data;try{data=await response.json();}catch{throw new Error('O painel retornou uma resposta inválida.');}if(!response.ok){if(response.status===401&&path!='/api/login') showLogin();throw new Error(data.error||'Não foi possível concluir.');}return data;}
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
@@ -20,6 +32,9 @@ function render(data){const p=data.performance||{};const active=data.activity.re
  $('lab-status').textContent=`Experimento sem aprovação histórica · ${labPhases[lab.phase]||'sem leitura'} · última atualização ${date(lab.updated)} · término ${date(lab.end)}`;
  $('lab-metrics').innerHTML=table(['Saldo inicial fictício','Patrimônio USDT','Resultado líquido USDT','Ordens','Taxas USDT'],[[number(1000),number(lp.equity),number(lp.total_pnl),number(lp.orders,0),number(lp.fees,4)]]);
  $('lab-signals').textContent=Object.entries(lab.signals||{}).map(([s,v])=>`${s}: ${v.reason}`).join(' · ')+(lab.error?` · Ciclo bloqueado: ${lab.error}`:'');
+ labChart('lab-equity-chart',lab.curve||[],'equity');
+ labChart('lab-dd-chart',lab.curve||[],'drawdown');
+ $('lab-orders').innerHTML=(lab.orders||[]).length?table(['Horário','Ativo','Lado','Quantidade','Preço USDT','Taxa USDT','Realizado USDT'],lab.orders.map(o=>[escape(date(o.time)),escape(o.symbol),`<span class="tag ${o.side==='SELL'?'warn':''}">${o.side==='BUY'?'Compra':'Venda'}</span>`,number(o.quantity,8),number(o.price),number(o.fee,5),number(o.realized_pnl,4)])):empty('Nenhuma ordem simulada registrada.','O painel mostrará as compras e vendas efetivamente gravadas no diário.');
  const budget=data.test_budget||{};
  $('test-capital').textContent=number(budget.configured_cash)+' USDT fictícios';
  $('measurement-note').textContent=budget.measured?'Os cartões abaixo mostram a última medição salva da carteira.':'Ainda não há medição da carteira. Os traços abaixo não indicam saldo zero. O observador coleta sinais; os resultados dos experimentos estão na aba Estratégias.';
