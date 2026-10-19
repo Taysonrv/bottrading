@@ -28,6 +28,10 @@ function drawChart(points){const chart=$('chart');if(points.length<2){chart.inne
 function render(data){const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
+ const exitTrial=data.exit_trial||{comparisons:[]};
+ const exitNames={hold:'Manter o lote inicial',take_profit_1pct:'Take-profit de 1% líquido',trailing_halfpct_after_1pct:'Ativar em 1% líquido · recuo de 0,5%'};
+ $('lab-exit-comparison').innerHTML=exitTrial.comparisons.length?table(['Saída hipotética · NÃO ATIVA','Resultado líquido USDT','Realizado USDT','Vendas','Drawdown'],exitTrial.comparisons.map(r=>[escape(exitNames[r.policy]||r.policy),number(r.pnl,4),number(r.realized,4),number(r.sales,0),percent(r.drawdown)])):empty('Comparação de saídas ainda não disponível.','O laboratório mantém sua regra diária.');
+ $('lab-exit-comparison-time').textContent=exitTrial.created?`Pesquisa salva em ${date(exitTrial.created)} · período ${date(exitTrial.start/1000)} até ${date(exitTrial.end/1000)}. Não é o resultado ao vivo nem ativa uma saída.`:'Pesquisa separada, sem alteração da sessão.';
  const usingLab=Boolean(lab.started&&lab.performance);
  const p=usingLab?lp:(data.performance||{});
  const selectedHalted=usingLab?Boolean(lp.halted):data.halted;

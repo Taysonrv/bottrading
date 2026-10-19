@@ -66,6 +66,7 @@ def snapshot(root):
     observed = read(root, 'observation-state.json')
     heartbeat = read(root, 'heartbeat.json')
     lab = read(root, 'reports/local/live-paper.json')
+    exit_trial = read(root, 'reports/local/exit-comparison.json')
     lab_curve,lab_orders = lab_history(root,lab)
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
@@ -147,6 +148,11 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'exit_trial': {'created':exit_trial.get('created'),'start':exit_trial.get('start'),
+                'end':exit_trial.get('end_exclusive'),'comparisons':[
+                    {'policy':r.get('policy'),'pnl':metric(r.get('return_usdt')),
+                     'realized':metric(r.get('realized_pnl')),'sales':len(r.get('orders',[])),
+                     'drawdown':metric(r.get('drawdown'))} for r in exit_trial.get('comparisons',[])]},
             'paper_lab': {'started': lab.get('started'), 'end': lab.get('end'), 'updated': lab.get('updated'),
                            'phase': lab.get('phase'), 'error': lab.get('error'),
                            'signals': lab.get('signals', {}), 'performance': lab.get('performance'),
