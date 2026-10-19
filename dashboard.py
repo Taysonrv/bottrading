@@ -15,6 +15,7 @@ import time
 import diagnostics
 from urllib.parse import urlsplit,parse_qs
 import market_view
+import metamask_view
 
 ASSETS = Path(__file__).resolve().parent / 'dashboard_assets'
 
@@ -144,7 +145,7 @@ def snapshot(root):
         validation_exists=bool(validation), validation_current=current, validation_passed=validation.get('portfolio_passed', False),
         observation_exists=bool(observed), observation_current=observation_current,
         activity_recent=recent, performance_exists=bool(state.get('performance')))
-    return {'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
+    return {'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
             'halted': state.get('halted', False),
             'activity': {'recent': 0 <= age <= 180 and heartbeat.get('phase') != 'stopped',
                          'time': heartbeat.get('time'), 'phase': heartbeat.get('phase'), 'command': heartbeat.get('command')},
@@ -249,10 +250,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self.boundary():
             return
         path = urlsplit(self.path).path
-        if path in ('/', '/app.js', '/market.js', '/style.css'):
+        if path in ('/', '/app.js', '/market.js', '/metamask.js', '/style.css'):
             filename, mime = {'/': ('index.html', 'text/html; charset=utf-8'),
                               '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
                               '/market.js': ('market.js', 'text/javascript; charset=utf-8'),
+                              '/metamask.js': ('metamask.js', 'text/javascript; charset=utf-8'),
                               '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
             return self.send(200, (ASSETS / filename).read_bytes(), mime)
         session = self.session()
