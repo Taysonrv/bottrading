@@ -2,10 +2,11 @@
 
 **Amostra curta de negócios públicos reais; preenchimentos e carteira simulados. Não valida rentabilidade.**
 
-Capital fictício: 1.000 USDT. Par: BTCUSDT. Eventos: 1000. Duração: 111.142 segundos.
+Capital fictício: 1.000 USDT. Par: BTCUSDT. Eventos: 13372. Duração: 599.835 segundos.
+Período solicitado confirmado na coleta: Sim. Intervalo entre primeiro e último evento pode ser menor que a duração solicitada.
 Patrimônio marcado: 1000.00000 USDT. Taxas simuladas: 0.00000 USDT.
 Preenchimentos: 0. Ciclos completos compra/venda: 0.
-Ordens abertas antes do encerramento: 4. Reserva antes do encerramento: 98.19405 USDT.
+Ordens abertas antes do encerramento: 4. Reserva antes do encerramento: 98.21822 USDT.
 Ordens após cancelamento final: 0. Episódio rompido/travado: False.
 
 Faixa e degraus definidos apenas pelo primeiro negócio, sem ajuste após consultar os resultados.
@@ -17,4 +18,4 @@ Ao fim da amostra, cancela pendências. Não desconta liquidação das posiçõe
 Uma amostra sem preenchimentos é um resultado operacional válido; não se estreita a grade para forçar trades.
 Fonte técnica: https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market
 
-Consulta UTC: 2026-10-18T23:33:16.750737+00:00
+Execução UTC (pode usar entrada salva): 2026-10-19T00:10:13.055282+00:00

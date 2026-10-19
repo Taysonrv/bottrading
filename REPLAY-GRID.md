@@ -3,9 +3,22 @@
 ```powershell
 python -m unittest test_grid_replay -v
 python grid_replay.py
+python grid_replay.py --minutes 10
 ```
 
 Consulta somente `exchangeInfo` e os últimos 1.000 `aggTrades` de BTCUSDT no serviço público de dados da Binance. Não requer chave, não lê saldos da conta, não envia ordens. Capital simulado: 1.000 USDT.
+
+Com `--minutes 10`, solicita dez minutos encerrados no último minuto UTC completo e pagina por identificador até confirmar um negócio no final ou depois dele. Aceita de 1 a 60 minutos. Os eventos da mesma fração de milissegundo não são descartados: continuação usa `fromId`, não horário acrescido de um. Exige IDs consecutivos entre páginas. Falha em vez de publicar resultado completo se faltarem dados ou ultrapassar 300 páginas.
+
+O intervalo é `[início,fim)`. O negócio usado para confirmar o final não entra nos fills. A duração entre o primeiro e o último evento pode ser um pouco menor que a janela solicitada, por ausência de negócios nas extremidades.
+
+A coleta salva dados públicos e os filtros consultados em `replay-data/last-public-input.json` (ignorado pelo Git). Para repetir exatamente essa entrada, sem rede:
+
+```powershell
+python grid_replay.py --input replay-data/last-public-input.json
+```
+
+Esse arquivo é substituído pela próxima coleta bem-sucedida; preserve uma cópia para manter a amostra. Uma coleta interrompida não substitui o relatório anterior por um replay parcial. O relatório inclui hash dos dados para conferir reprodução. Não use arquivos locais de procedência desconhecida como prova independente de qualidade dos dados.
 
 ## O que foi conectado
 

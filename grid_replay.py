@@ -1,11 +1,48 @@
 """Public aggregate-trade smoke replay; no account credentials or transactions."""
 import datetime as dt
+import argparse
 import hashlib
 import json
 from pathlib import Path
 import urllib.request
+import urllib.parse
+import time
 from grid_controller import GridEpisode
 from limit_simulator import D, LimitBook
+
+
+def download_period(get, symbol, start, end, max_pages=300, progress=None):
+    """Fetch [start,end), continue by ID so events in the same millisecond aren't lost.
+
+    Require a witness event at/after end; never label a truncated window complete.
+    """
+    if type(start) is not int or type(end) is not int or not 0 <= start < end or end-start > 3600000:
+        raise ValueError('Período deve ser positivo e de até 60 minutos')
+    rows, last_id, last_time = [], None, None
+    for page_number in range(1, max_pages+1):
+        query = dict(symbol=symbol, limit=1000)
+        if last_id is None:
+            query.update(startTime=start, endTime=end)
+        else:
+            query['fromId'] = last_id+1
+        page = get('aggTrades?'+urllib.parse.urlencode(query))
+        if not isinstance(page, list) or not page:
+            raise ValueError('Dados incompletos: não há evento que confirme o final do período')
+        for row in page:
+            if type(row.get('a')) is not int or type(row.get('T')) is not int:
+                raise ValueError('Identificador ou data inválidos')
+            if last_id is not None and (row['a'] != last_id+1 or row['T'] < last_time):
+                raise ValueError('Paginação com lacuna, duplicata ou horário regressivo')
+            if row['T'] < start:
+                raise ValueError('Resposta anterior ao período')
+            last_id, last_time = row['a'], row['T']
+            if row['T'] >= end:
+                validate_tape(rows)
+                return rows
+            rows.append(row)
+        if progress:
+            progress(page_number, len(rows))
+    raise ValueError('Limite de páginas atingido; período não será publicado como completo')
 
 
 def validate_tape(rows):
@@ -58,15 +95,45 @@ def replay(rows, filters, symbol='BTCUSDT', stop_requested=None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Replay público simulado, sem ordens reais')
+    parser.add_argument('--minutes', type=int, choices=range(1, 61), metavar='1..60',
+                        help='Período encerrado no último minuto UTC completo; sem opção usa 1000 eventos')
+    parser.add_argument('--input', type=Path, help='Reproduz arquivo local de dados públicos salvo, sem rede')
+    args = parser.parse_args()
+    if args.input and args.minutes:
+        parser.error('Use --input ou --minutes, não ambos')
     symbol = 'BTCUSDT'
     def get(path):
         with urllib.request.urlopen('https://data-api.binance.vision/api/v3/'+path, timeout=30) as response:
             return json.load(response)
-    filters = symbol_filters(get('exchangeInfo?symbol='+symbol), symbol)
-    rows = get('aggTrades?symbol='+symbol+'&limit=1000')
-    report = replay(rows, filters)
-    report['created'] = dt.datetime.now(dt.timezone.utc).isoformat()
     root = Path(__file__).resolve().parent
+    period = None
+    if args.input:
+        cached = json.loads(args.input.read_text(encoding='utf-8'))
+        if cached['symbol'] != symbol:
+            raise ValueError('Arquivo pertence a outro ativo')
+        filters, rows, period = cached['filters'], cached['rows'], cached.get('period')
+    else:
+        filters = symbol_filters(get('exchangeInfo?symbol='+symbol), symbol)
+        if args.minutes:
+            end = int(time.time()*1000)//60000*60000
+            start = end-args.minutes*60000
+            def progress(pages, count):
+                if pages % 10 == 0:
+                    print(f'Coleta: {pages} páginas, {count} negócios; final ainda não confirmado.', flush=True)
+            rows = download_period(get, symbol, start, end, progress=progress)
+            period = dict(start=start, end_exclusive=end, complete=True)
+        else:
+            rows = get('aggTrades?symbol='+symbol+'&limit=1000')
+        validate_tape(rows)
+        cache = root/'replay-data'
+        cache.mkdir(exist_ok=True)
+        tmp = cache/'last-public-input.tmp'
+        tmp.write_text(json.dumps(dict(symbol=symbol, filters=filters, rows=rows, period=period)), encoding='utf-8')
+        tmp.replace(cache/'last-public-input.json')
+    report = replay(rows, filters)
+    report['requested_period'] = period
+    report['created'] = dt.datetime.now(dt.timezone.utc).isoformat()
     report['code_hash'] = hashlib.sha256(b''.join((root/name).read_bytes() for name in
         ('grid_replay.py', 'grid_controller.py', 'limit_simulator.py'))).hexdigest()
     output = root/'reports/2026-10-18-grid-replay.json'
@@ -76,6 +143,7 @@ def main():
     lines = ['# Replay operacional do Grid', '',
         '**Amostra curta de negócios públicos reais; preenchimentos e carteira simulados. Não valida rentabilidade.**', '',
         f"Capital fictício: 1.000 USDT. Par: {symbol}. Eventos: {report['events']}. Duração: {seconds:.3f} segundos.",
+        f"Período solicitado confirmado na coleta: {'Sim' if period else 'Não solicitado — amostra de eventos'}. Intervalo entre primeiro e último evento pode ser menor que a duração solicitada.",
         f"Patrimônio marcado: {s['equity']:.5f} USDT. Taxas simuladas: {s['fees']:.5f} USDT.",
         f"Preenchimentos: {s['fills']}. Ciclos completos compra/venda: {report['completed_cycles']}.",
         f"Ordens abertas antes do encerramento: {report['active_at_cutoff']}. Reserva antes do encerramento: {report['reserved_at_cutoff']:.5f} USDT.",
@@ -88,7 +156,7 @@ def main():
         'Ao fim da amostra, cancela pendências. Não desconta liquidação das posições nem atribui rendimento anual.',
         'Uma amostra sem preenchimentos é um resultado operacional válido; não se estreita a grade para forçar trades.',
         'Fonte técnica: https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market',
-        '', 'Consulta UTC: '+report['created']]
+        '', 'Execução UTC (pode usar entrada salva): '+report['created']]
     output.with_suffix('.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
     print('\n'.join(lines))
 

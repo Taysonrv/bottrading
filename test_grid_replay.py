@@ -1,7 +1,7 @@
 import copy
 import unittest
 from grid_controller import GridEpisode
-from grid_replay import replay, validate_tape, symbol_filters
+from grid_replay import replay, validate_tape, symbol_filters, download_period
 from limit_simulator import LimitBook, fixture_filters
 
 
@@ -10,6 +10,33 @@ def tape(prices):
 
 
 class GridReplayTests(unittest.TestCase):
+    def test_pagination_keeps_events_with_same_millisecond(self):
+        from urllib.parse import urlparse, parse_qs
+        first = [dict(a=i, T=100, p='100', q='1', m=True) for i in range(1,1001)]
+        second = [dict(a=1001,T=100,p='100',q='1',m=True),
+                  dict(a=1002,T=200,p='100',q='1',m=True)]
+        calls = []
+        def get(path):
+            calls.append(parse_qs(urlparse(path).query))
+            return first if len(calls)==1 else second
+        rows = download_period(get,'BTCUSDT',100,200)
+        self.assertEqual(len(rows),1001)
+        self.assertEqual(calls[1]['fromId'], ['1001'])
+        self.assertNotIn('startTime',calls[1])
+
+    def test_incomplete_or_capped_download_fails(self):
+        rows = tape([100,99])
+        with self.assertRaisesRegex(ValueError, 'Limite de páginas'):
+            download_period(lambda path: rows, 'BTCUSDT',0,2000,max_pages=1)
+        pages = iter([rows,[]])
+        with self.assertRaisesRegex(ValueError,'incompletos'):
+            download_period(lambda path: next(pages), 'BTCUSDT',0,2000)
+
+    def test_gap_between_pages_is_rejected(self):
+        pages = iter([tape([100,99]), [dict(a=4,T=2000,p='100',q='1',m=True)]])
+        with self.assertRaisesRegex(ValueError,'lacuna'):
+            download_period(lambda path:next(pages),'BTCUSDT',0,2000)
+
     def test_buy_sell_then_replacement_without_same_event_reuse(self):
         result = replay(tape([100, 99, 100.1]), fixture_filters())
         self.assertEqual(result['completed_cycles'], 1)

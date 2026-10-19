@@ -4,13 +4,13 @@
   "smoke_test_only": true,
   "adopted": false,
   "approved_for_trading": false,
-  "first_time": 1792366282648,
-  "last_time": 1792366393790,
-  "first_id": 4092738921,
-  "last_id": 4092739920,
-  "events": 1000,
+  "first_time": 1792367880082,
+  "last_time": 1792368479917,
+  "first_id": 4092759410,
+  "last_id": 4092772781,
+  "events": 13372,
   "active_at_cutoff": 4,
-  "reserved_at_cutoff": "98.1940495536000000000",
+  "reserved_at_cutoff": "98.2182207006000000000",
   "summary": {
     "cash": "1000",
     "positions": {
@@ -41,7 +41,7 @@
       "max_orders": 200
     }
   },
-  "anchor": "82102.41000000",
+  "anchor": "82122.62000000",
   "parameters": {
     "spacing": ".005",
     "levels": 4,
@@ -49,7 +49,12 @@
     "participation": ".1",
     "fee": ".001"
   },
-  "data_hash": "3638dc30598c4faf28f53ff40f4441bb29890a6892c50afdc8775badc47c94b4",
-  "created": "2026-10-18T23:33:16.750737+00:00",
-  "code_hash": "357f510dddfd0b7e239ac11389d9d4ee78514fbea9094c2a9ebb01fcd21c75e5"
+  "data_hash": "e0854e913e127b23fda1ba1cd578815d6fc215574d6256a70b2e43fe520dadf7",
+  "requested_period": {
+    "start": 1792367880000,
+    "end_exclusive": 1792368480000,
+    "complete": true
+  },
+  "created": "2026-10-19T00:10:13.055282+00:00",
+  "code_hash": "19cead8b2c9dd602b1594a40bc4c451cee7f7a92c4bbc876a89d88e1cfeb4a4a"
 }
