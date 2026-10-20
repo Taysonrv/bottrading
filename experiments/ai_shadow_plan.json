@@ -1,0 +1,109 @@
+{
+  "plan_version": "ai-shadow-v1-draft",
+  "status": "offline_build_approved_external_activation_pending",
+  "frozen": false,
+  "activation_cutoff_utc": null,
+  "mode": "offline_fixtures_then_observe_only",
+  "trading_enabled": false,
+  "provider_enabled": false,
+  "provider_budget_usd": 0,
+  "research_symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "LINKUSDT"
+  ],
+  "initial_observation_symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "decision_interval_seconds": 900,
+  "primary_evaluation_offset_minute": 0,
+  "outcome_horizon_seconds": 3600,
+  "minimum_total_days": 30,
+  "development_days": 14,
+  "reserved_evaluation_days": 14,
+  "warmup_days": 2,
+  "minimum_mature_primary_labels_per_symbol": 200,
+  "fees_per_side": 0.001,
+  "slippage_per_side": 0.001,
+  "stress_multipliers": [
+    1,
+    2
+  ],
+  "features": {
+    "book_type": "level_1",
+    "volatility_return_interval_seconds": 60,
+    "volatility_window_returns": 60,
+    "minimum_valid_returns": 60
+  },
+  "limits": {
+    "max_quote_age_seconds": 5,
+    "response_timeout_seconds": 2,
+    "consecutive_failures_open_circuit": 3,
+    "circuit_cooldown_seconds": 60,
+    "max_drawdown": 0.15,
+    "max_daily_loss": 0.03,
+    "max_entry_fraction": 0.25,
+    "max_entry_usdt": 5,
+    "max_positions": 1,
+    "kelly_enabled": false,
+    "short_enabled": false
+  },
+  "candidate_gate": {
+    "min_quality": 2,
+    "min_direction_confidence_exclusive": 0.8,
+    "risk_state": "safe",
+    "toxic_flow": false
+  },
+  "variants": [
+    {
+      "name": "deterministic_baseline",
+      "use_model": false
+    },
+    {
+      "name": "typed_model_shadow",
+      "use_model": true,
+      "network_enabled": false
+    }
+  ],
+  "required_before_network": [
+    "plan approval",
+    "AgenKit license activation or explicit equivalent-workflow authorization",
+    "locally configured Jev key",
+    "pinned model and documented pricing",
+    "approved nonzero budget",
+    "approval of normalized snapshot fields transmitted to api.typesafe.ai",
+    "token count verification below 400"
+  ],
+  "calibration": {
+    "event": "net_return_positive_60m",
+    "probability_source": "explicit target question, never direction confidence",
+    "entry": "first valid ask after eligible decision",
+    "exit": "first valid bid at/after entry+3600s within 5s",
+    "missing_policy": "exclude and count, never impute",
+    "baseline": "constant probability estimated only in development",
+    "overlap": "primary labels only at hour boundary; purge crossing targets at development/evaluation split",
+    "eligibility": "inconclusive until preregistered coverage and sample thresholds are met"
+  },
+  "acceptance": {
+    "minimum_label_coverage": 0.95,
+    "min_completed_labels_per_symbol": 200,
+    "brier": "report against development-only baseline, without treating improvement as profit approval",
+    "execution": "observe-only has no fills or PNL; hypothetical labels are not simulated executed orders",
+    "statistics": "report uncertainty and cross-asset dependence; no automatic approval from a point estimate"
+  },
+  "risk_action": "candidate block only in shadow; does not change active paper session",
+  "retention": {
+    "days": 30,
+    "max_bytes": 1073741824,
+    "on_full": "stop new evaluations and preserve journal"
+  },
+  "approval": {
+    "specification": "approved by user 2026-10-20",
+    "architecture": "approved by user 2026-10-20",
+    "plan": "Offline build and equivalent workflow without AgenKit approved by user 2026-10-20"
+  },
+  "note": "Draft. Do not treat this as a frozen experiment or an operational command."
+}
