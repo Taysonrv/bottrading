@@ -25,3 +25,5 @@ defensive-report.md
 *.tmp
 replay-data/
 reports/local/
+
+.venv-spot/

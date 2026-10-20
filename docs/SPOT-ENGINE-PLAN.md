@@ -94,3 +94,17 @@ Coleta pública real BTC/USDT 1h: 17.520 candles, 18 páginas, dois anos complet
 A série OHLCV não informa ordem intrabar entre máxima e mínima, fila de execução, spread ou momento exato em que um candle histórico ficou disponível. O futuro backtest precisará tratar essas limitações e executar sinais em instante posterior. Não usar valores da vela em formação.
 
 Fontes: https://docs.ccxt.com/docs/manual e https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md (consultadas em 20/10/2026).
+
+
+## Correcao de instalacao no Windows/Python 3.15
+
+A instalacao do operador falhou em cffi 2.0.0 no Python 3.15: pip tentou compilar e exigiu Visual C++ Build Tools. Os testes com adaptadores falsos passaram, mas isso nao confirma a instalacao do ccxt nem o download real.
+
+Use o instalador abaixo. Ele procura Python 3.12 pelo launcher `py` e, se ausente, pelo runtime local do Codex. Cria `.venv-spot` separada, sem apagar a `.venv` existente ou mudar o Python padrao. Instala somente wheels binarias; interrompe ao primeiro erro. Se nao encontrar Python 3.12, pede sua instalacao, sem baixar outro interpretador automaticamente.
+
+```powershell
+git pull
+.\configurar-spot.ps1 -BaixarHistorico
+```
+
+A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 26 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
