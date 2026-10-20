@@ -20,3 +20,17 @@ O mesmo terminal mostra a última compra/venda, patrimônio estimado e resultado
 ## Explorer simplificado
 
 O VS Code exibe os pontos de entrada iniciar.py, dashboard.py e bot.py, os arquivos de configuração e os assets do painel. Módulos internos, testes, logs e documentos de pesquisa são ocultados pelo arquivo .vscode/settings.json, sem apagar ou mover nada. Para voltar a exibi-los, desative as entradas de files.exclude nas configurações do workspace. A tarefa “Spot Lab: iniciar tudo (20 USDT fictícios)” também inicia todos os componentes em um terminal.
+
+## Telegram no mesmo terminal
+
+Interrompa o iniciador com Ctrl+C e execute:
+
+```powershell
+git pull
+.\configurar-telegram.ps1
+python iniciar.py
+```
+
+O script pede o token oculto e o chat ID localmente e envia uma mensagem de teste. Não envie essas credenciais no chat. Se o teste falhar, confira a configuração antes de iniciar. O iniciador herda essas variáveis somente desse terminal, sem salvá-las em arquivo. Sem as duas variáveis, Telegram fica desativado e a simulação continua.
+
+O relé lê o relatório a cada dez segundos em uma thread separada, sem bloquear decisões de trading. Envia novas compras/vendas fictícias e mudanças de estado (dados antigos, erro, STOP ou drawdown). Na primeira configuração ignora as ordens anteriores; nos reinícios preserva os identificadores enviados em reports/local/paper-alerts.json. Envio recusado é tentado novamente. Uma interrupção entre o envio e a gravação da confirmação pode causar repetição; não há garantia de entrega única. Não apague o estado para resolver falhas. Não há resumo diário automático nesta versão. Ao fechar o iniciador os avisos também param.

@@ -101,6 +101,7 @@
     "test_wallet.py": true,
     "test_wallet_quote_research.py": true,
     "wallet.py": true,
-    "wallet_quote_research.py": true
+    "wallet_quote_research.py": true,
+    "paper_alerts.py": true
   }
 }
