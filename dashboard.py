@@ -72,6 +72,7 @@ def snapshot(root):
     small_cap = read(root, 'reports/local/small-cap-scan.json')
     small_comparison = read(root, 'reports/local/small-cap-comparison.json')
     spot_suite = read(root, 'reports/local/spot-suite.json')
+    momentum_universe = read(root, 'reports/local/momentum-universe.json')
     lab_curve,lab_orders = lab_history(root,lab)
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
@@ -153,6 +154,9 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'momentum_universe': {'created':momentum_universe.get('created'),'comparisons':[
+                {'window':r.get('window'),**{k:metric(r.get(k)) for k in ('stress','pnl','buys','sells','drawdown','blocked')}}
+                for r in momentum_universe.get('comparisons',[])]},
             'spot_suite': {'created':spot_suite.get('created'),'comparisons':[
                 {'strategy':r.get('strategy'),**{k:metric(r.get(k)) for k in ('stress','pnl','buys','sells','drawdown','blocked')}}
                 for r in spot_suite.get('comparisons',[])]},

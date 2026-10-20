@@ -30,6 +30,9 @@ function render(data){if(typeof renderMetamask==='function') renderMetamask(data
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
  const micro=data.micro_trial||{comparisons:[]};
+ const momentumStudy=data.momentum_universe||{comparisons:[]};
+ $('momentum-study').innerHTML=momentumStudy.comparisons.length?table(['Período','Custos','Resultado USDT','Compras','Vendas','Drawdown','Bloqueios'],momentumStudy.comparisons.map(r=>[escape(r.window),`${number(r.stress,0)}x`,number(r.pnl,6),number(r.buys,0),number(r.sells,0),percent(r.drawdown),number(r.blocked,0)])):empty('Estudo do universo ainda não disponível.');
+ $('momentum-study-time').textContent=momentumStudy.created?`Salvo em ${date(momentumStudy.created)} · 20 USDT por cenário histórico · nenhuma adoção.`:'Aguardando relatório.';
  const stream=data.market_stream||{},streamAge=Date.now()/1000-(stream.updated||0);
  $('stream-status').textContent=stream.updated?`${stream.phase==='connected'&&streamAge<10?'Conectado · relatório recente':stream.phase==='stopped'?'Coletor encerrado':'Conexão pendente, interrompida ou relatório atrasado'} · ${date(stream.updated)} · reconexões ${number(stream.reconnects,0)} · lacunas de trades ${number(stream.gaps,0)}. Não executa ordens.`:'Coletor ainda não iniciado.';
  $('stream-rows').innerHTML=stream.rows?.length?table(['Par','Spread','Negócios em até 60s','Volume USDT','Agressão compradora','Delta USDT · janela','Variação observada','Leitura'],stream.rows.map(r=>[escape(r.symbol),percent(r.spread),number(r.trades,0),number(r.notional_usdt,2),percent(r.buy_share),number(Number.isFinite(r.buy_share)&&Number.isFinite(r.notional_usdt)?r.notional_usdt*(2*r.buy_share-1):null,2),percent(r.change),escape(streamAge<10&&stream.phase==='connected'?r.observation:'Dados antigos; observação bloqueada')])):empty('Aguardando eventos reais do WebSocket.');
