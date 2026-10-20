@@ -26,8 +26,9 @@ function mmCalculate(){
 for(const id of ['mm-capital','mm-move','mm-fee','mm-gas-usd']) $(id).addEventListener('input',mmCalculate);
 
 function metamaskChrome(){
- const active=!$('metamask').hidden;
- $('stop').hidden=active;$('notice').hidden=active;
+ const active=!$('metamask').hidden,offline=!$('shadow').hidden;
+ $('stop').hidden=active||offline;$('notice').hidden=active;
  document.querySelector('.page-heading .eyebrow').textContent=active?'METAMASK / LABORATÓRIO MULTIRREDE':'BINANCE SPOT / TRADING LAB';
+ if(offline){$('process-help').hidden=true;$('updated').textContent=shadowViewState.saved_at?'Relatório offline salvo em '+date(shadowViewState.saved_at):'Relatório offline ainda não disponível';$('connection').textContent='⌘ V2 offline · sem execução';$('notice').textContent='DEMONSTRAÇÃO ARTIFICIAL. Esta tela não contém preços reais, compras ou previsões de lucro.';document.querySelector('.page-heading .eyebrow').textContent='V2 / FIXTURES LOCAIS';}
  if(active){$('process-help').hidden=true;$('updated').textContent='Carteira em leitura · testes sem assinatura · relatórios com horário próprio';$('connection').textContent='◇ MetaMask · relatórios salvos';}
 }

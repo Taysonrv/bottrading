@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let csrf = '', timer, busy = false;
-let labMarketState=null,live20MarketState=null;
+let labMarketState=null,live20MarketState=null,shadowViewState={};
 const number = (value, digits=2) => Number.isFinite(value) ? value.toLocaleString('pt-BR', {minimumFractionDigits:digits, maximumFractionDigits:digits}) : '—';
 const percent = v => Number.isFinite(v) ? number(v*100) + '%' : '—';
 const date = value => { if(!value) return 'Sem leitura'; const d=new Date(typeof value==='number'?value*1000:value); return Number.isNaN(d.getTime())?'Sem leitura':d.toLocaleString('pt-BR'); };
@@ -25,7 +25,7 @@ async function api(path, body){const response=await fetch(path,{method:body?'POS
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#25375c" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
-function render(data){renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
+function render(data){renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
@@ -122,7 +122,7 @@ function render(data){renderAudit(data.session_audit||{},data.research_registry|
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
-for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));$('page-name').textContent=button.textContent.trim();$('heading').textContent={live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));$('page-name').textContent=button.textContent.trim();$('heading').textContent={shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
 
@@ -222,4 +222,17 @@ function renderAudit(a,r){
  $('audit-quality').innerHTML=table(['DD na curva retida','Medições retidas','Intervalos acima de 180s','Maior intervalo (s)','Referência em caixa · PNL USDT','Comprar/manter'],[[percent(a.saved_curve_drawdown),number(a.curve_points,0),number(a.gaps_over_180s,0),number(a.largest_gap_seconds,0),'0,00','Não disponível']]);
  $('audit-registry').textContent=r.studies?`Registro de pesquisa: ${r.studies.length} relatórios distintos e ${r.variants?.length||0} configurações identificadas. Inventário retrospectivo dos arquivos disponíveis; não é pré-inscrição nem correção de múltiplos testes.`:'Registro de pesquisa ainda não gerado nesta pasta. O iniciador atualizado gera o relatório a cada minuto; consulta manual: python auditar.py.';
  $('audit-limitations').textContent=[...(a.issues||[]),...(a.limits||[]),a.benchmarks?.reason||''].join(' ');
+}
+
+function renderShadow(s){
+ shadowViewState=s;
+ if(s.status!=='available'){
+  $('shadow-status').textContent=s.status==='invalid'?'Relatório inválido ou incompatível com o modo offline; confira o arquivo local.':'Demonstração ainda não executada nesta pasta. Use os comandos abaixo para gerar o relatório.';
+  $('shadow-summary').innerHTML=empty('Sem resultado offline disponível.');$('shadow-features').innerHTML='';return;
+ }
+ $('shadow-status').textContent='Fixture artificial · arquivo salvo em '+date(s.saved_at)+'. Não representa coleta de mercado.';
+ const actions={HOLD:'Aguardar (teste)',REVIEW_REQUIRED:'Revisão necessária (teste)',SHADOW_CANDIDATE:'Fixture aceita pelos filtros'};
+ $('shadow-summary').innerHTML=table(['Resultado de software','Ordens','Chamadas pagas','Calibração real','Veredito'],[[escape(actions[s.action]||'Indisponível'),number(s.orders,0),number(s.requests_paid,0),'Não realizada','Inconclusivo']]);
+ const f=s.features||{};
+ $('shadow-features').innerHTML=table(['Par fictício','Mid fictício','Spread fictício','Imbalance L1','Volatilidade não anualizada','DD fictício','Perda diária fictícia'],[[escape(s.symbol),number(f.mid,6),percent(f.spread),number(f.imbalance_l1,6),number(f.volatility,10),percent(f.drawdown),percent(f.daily_loss)]]);
 }

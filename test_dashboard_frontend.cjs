@@ -40,3 +40,11 @@ ctx.renderSessionHealth({});
 assert.equal(element('live20-diagnostic').hidden,true);
 assert.equal(element('legacy-health').hidden,false);
 console.log('OK: current-session activity and diagnostics, with legacy fallback.');
+
+ctx.renderShadow({status:'missing'});
+assert.match(element('shadow-status').textContent,/ainda não executada/);
+ctx.renderShadow({status:'available',saved_at:100,action:'SHADOW_CANDIDATE',orders:0,requests_paid:0,symbol:'BTCUSDT',features:{mid:100}});
+assert.match(element('shadow-summary').innerHTML,/Fixture aceita/);
+assert.match(element('shadow-status').textContent,/artificial/);
+assert.match(element('shadow-summary').innerHTML,/Não realizada/);
+console.log('OK: offline V2 remains explicitly artificial.');

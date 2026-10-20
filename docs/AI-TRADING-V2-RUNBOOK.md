@@ -27,3 +27,7 @@ Sem Jev, AgenKit, loop ao vivo V2, transmissão de dados financeiros, cobrança 
 ## Voltar ao funcionamento anterior
 
 Basta encerrar a demonstração. Ela não inicia serviços persistentes nem altera a configuração do bot atual. Preservar seu journal para auditoria. Não usar git reset, não apagar relatórios ou reiniciar a simulação para desfazer uma demonstração.
+
+## Tela de leitura
+
+A aba V2 · Offline do painel lê somente o resumo do demo-report.json da pasta atendida pelo servidor. Não inicia a demonstração, não lê o SQLite e não altera o bot. Fonte/dados artificiais aparecem explicitamente; relatórios que declarem rede/ordens ativas são recusados. Depois de atualizar dashboard.py, reinicie apenas pelo iniciador único para carregar o novo leitor.
