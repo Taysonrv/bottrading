@@ -49,7 +49,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Instalacao incompleta. Testes e coleta nao serao executados.' }
     & $pythonPath -m pip check
     if ($LASTEXITCODE -ne 0) { throw 'Dependencias inconsistentes. Coleta cancelada.' }
-    & $pythonPath -m unittest tests.test_spot_config tests.test_spot_data tests.test_spot_strategy tests.test_spot_risk -v
+    & $pythonPath -m unittest tests.test_spot_config tests.test_spot_data tests.test_spot_strategy tests.test_spot_risk tests.test_spot_execution -v
     if ($LASTEXITCODE -ne 0) { throw 'Testes falharam. Coleta cancelada.' }
     if ($BaixarHistorico) {
         & $pythonPath -m spot_engine.data --years 2

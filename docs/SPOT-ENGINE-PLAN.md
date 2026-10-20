@@ -15,7 +15,7 @@ spot_engine/
   data.py         # entregue: ccxt REST e observação WebSocket de candles fechados
   strategy.py     # entregue: classe incremental de sinais EMA/ATR, sem ordens
   risk.py         # entregue: propostas e travas persistentes; execução pendente
-  execution.py    # adaptadores paper/testnet; reconciliação e IDs idempotentes
+  execution.py    # entregue: broker paper transacional; Testnet/live pendentes
   backtest.py     # mesmas regras, decisão no fechamento/execução posterior
   logger.py       # SQLite transacional, exportação CSV e UTC
   main.py         # composição; live indisponível até implementação e validação
@@ -107,7 +107,7 @@ git pull
 .\configurar-spot.ps1 -BaixarHistorico
 ```
 
-A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 57 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
+A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 79 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
 
 
 ## Módulo 3: sinais EMA/ATR — entregue
@@ -182,3 +182,39 @@ git pull
 Os testes usam apenas carteiras e filtros fictícios em diretórios temporários. Cobrem custos, orçamento restante, mínimo inviável, preços/tamanhos, trava diária, pico e drawdown, reinício, corrupção, relógio, STOP, saídas de redução e entradas pendentes. Não inicializam risco para sua carteira atual. Nenhuma nova dependência.
 
 Fonte de filtros: https://github.com/binance/binance-spot-api-docs/blob/master/filters.md (consultada em 20/10/2026). Próxima entrega: execução paper com reconciliação, reservas, preenchimentos e proteção; execução real permanece indisponível.
+
+
+## Módulo 5: execução exclusivamente simulada — entregue
+
+`spot_engine/execution.py` implementa `PaperBroker`, sem ccxt, chaves, rede ou caminho live. Ainda não é conectado ao painel, feed ou iniciador atual. `initialize` cria uma carteira nova de testes em raiz explicitamente fornecida; não importar saldo da sessão antiga ou inicializar na raiz de produção por tentativa. Os testes usam diretórios temporários e não mudam sua carteira.
+
+### Reserva e reconciliação
+
+SQLite serializa solicitações e grava ordem, caixa reservado, preenchimentos, custo médio, resultado realizado, taxas e proteção na mesma transação local. Duas entradas concorrentes não reservam o mesmo saldo. O patrimônio marcado inclui inventário com estimativa conservadora de venda; reserva não reduz o patrimônio. `Account.reserved_cash` foi acrescentado ao risco para distinguir caixa disponível de caixa reservado.
+
+Cada client_id é único; reapresentar a mesma solicitação retorna a ordem existente, enquanto conteúdo diferente para o mesmo ID é recusado. event_id também é único: repetição idêntica retorna o resultado salvo mesmo após reinício ou expiração da cotação. Isso é consulta de resultado, sem gerar outro fill. Novas ações continuam exigindo dados recentes. Prefixo `protect_` é reservado para saídas protetoras.
+
+O ledger é reconstruído a partir dos fills a cada transação, conferindo caixa, quantidade, custo, realizado, taxas e reserva. Checkpoint perdido ou incompatível não reinicia saldo. Alterações em risk.py ou execution.py mudam a identidade: futuras sessões do novo motor deverão ser preservadas e revisadas antes de migrar. Nenhuma dessas mudanças toca a identidade do simulador antigo.
+
+O banco de risco e o de execução são separados. Uma falha no segundo pode deixar uma trava de risco mais conservadora já persistida; nunca existe garantia de transação conjunta com uma exchange. O teste de falha no meio do fill verifica rollback do ledger e repetição sem duplicar preenchimento.
+
+### Modelo de preenchimento e proteção
+
+- Compra é uma intenção limitada pelo preço adverso estimado, com quantidade e custo aprovados pelo módulo de risco. Só recebe fill em evento posterior ao da solicitação e após a latência configurada.
+- O chamador fornece bid, ask, instante da cotação e quantidade disponível simulada para o lado da ordem. Sem liquidez informada, não há fill. A quantidade é limitada pelo restante e ajustada ao step.
+- Compra parcial preserva reserva do restante e já registra stop/alvo para a quantidade efetivamente adquirida. Cancelar a pendência libera apenas o saldo ainda reservado.
+- STOP cancela pendências ao processar um evento, bloqueia novos fills e mantém inventário exposto. Não liquida automaticamente; verificação de STOP ocorre também antes de reservas e fills.
+- Stop/alvo disparado cancela compras restantes e cria uma saída simulada. A venda aguarda outro evento e latência; pode receber preço pior num gap. Saída por sinal segue o mesmo fluxo. Não há short nem venda acima do inventário.
+- Venda parcial mantém proteção do restante. Posição abaixo do mínimo, lote, limite de preço ou notional pode ficar sem saída executável; o motivo é retornado e o inventário não é apagado. É necessário monitoramento/revisão, não aumentar risco para forçar saída.
+- Perda diária/drawdown cancela compras pendentes e impede novas entradas; redução protetora continua possível, exceto com STOP. Eventos de risco continuam disponíveis para futura entrega ao Telegram.
+
+A liquidez, fila, comissão e slippage continuam hipóteses. Não deduzimos preenchimento real de um simples toque no candle. Saídas são simulação de redução a mercado em cotação posterior; `Rules` ainda não implementa todos os filtros de ordens MARKET da Binance. Stops são sintéticos e dependem de receber novos eventos: com processo desligado, não executam. Não há stops reais na exchange.
+
+### Teste
+
+```powershell
+git pull
+.\.venv-spot\Scripts\python.exe -m unittest tests.test_spot_risk tests.test_spot_execution -v
+```
+
+Testes cobrem reserva, competição entre entradas, parcial, cancelamento, reinício, replay de IDs, rollback, STOP, gap no stop, alvo, venda parcial, ausência de liquidez, mínimos e ledger corrompido. Não iniciam negociação contínua e não calculam retorno de estratégia. Próximos módulos: histórico estruturado/exportação, backtest e orquestração dos novos componentes, depois integração ao painel e validação prospectiva. Testnet e live permanecem pendentes.

@@ -40,13 +40,16 @@ class Account:
     free_cash: D
     open_positions: int = 0
     pending_entries: int = 0
+    reserved_cash: D = D(0)
 
     def __post_init__(self):
         amount(self.equity);amount(self.free_cash)
-        if self.free_cash>self.equity:raise RiskError('Caixa excede patrimônio marcado.')
+        amount(self.reserved_cash)
+        if self.free_cash+self.reserved_cash>self.equity:raise RiskError('Caixa excede patrimônio marcado.')
         for value in (self.open_positions,self.pending_entries):
             if type(value) is not int or not 0<=value<=1000:raise RiskError('Contagem de posições inválida.')
-        if self.open_positions==0 and self.free_cash!=self.equity:
+        if self.reserved_cash and not self.pending_entries:raise RiskError('Reserva sem entrada pendente.')
+        if self.open_positions==0 and self.free_cash+self.reserved_cash!=self.equity:
             raise RiskError('Sem posição, patrimônio deve corresponder ao caixa livre.')
 
 
