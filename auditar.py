@@ -1,5 +1,7 @@
 """Generate private evidence reports without touching the paper account."""
 import json
+from datetime import datetime, timezone
+import uuid
 from pathlib import Path
 import threading
 from paper_lab import save,lock
@@ -23,6 +25,30 @@ def generate(root):
         return result
 
 
+def finalize(root, reason):
+    """Preserve a unique shutdown audit; never mutate account or close positions."""
+    if reason not in {'deadline', 'stop', 'interrupted', 'failure'}:
+        raise ValueError('Motivo de encerramento inválido')
+    result = generate(root)
+    stamp = datetime.now(timezone.utc)
+    result = dict(result, end_reason=reason, ended_at=stamp.isoformat(),
+                  shutdown_note='Última medição salva; posições não liquidadas. Não comprova rentabilidade.')
+    folder = Path(root) / 'reports/local/session-summaries'
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / (stamp.strftime('%Y%m%dT%H%M%S%fZ') + '-' + uuid.uuid4().hex + '.json')
+    with path.open('x', encoding='utf-8') as output:
+        json.dump(result, output, ensure_ascii=False, indent=2, allow_nan=False)
+    lines = ['# Resumo de encerramento da simulação', '',
+             'Última medição salva. Nenhuma posição liquidada. Sem aprovação de rentabilidade.', '',
+             f'Motivo: {reason}', f'Encerramento UTC: {stamp.isoformat()}', '']
+    for key in ('measurement', 'equity', 'pnl', 'realized', 'unrealized', 'fees', 'buys', 'sells', 'reconciled'):
+        lines.append(f'- {key}: {result.get(key)}')
+    lines += ['', '## Limitações', ''] + ['- ' + item for item in result.get('limits', []) + result.get('issues', [])]
+    with path.with_suffix('.md').open('x', encoding='utf-8') as output:
+        output.write('\n'.join(lines))
+    return path
+
+
 def start(root):
     stop=threading.Event()
     def work():
@@ -31,7 +57,8 @@ def start(root):
             try:generate(root)
             except (Exception,SystemExit):print('Auditoria indisponível; execução da simulação preservada.',flush=True)
             if stop.wait(60):break
-    threading.Thread(target=work,daemon=True,name='session-audit').start()
+    stop.worker = threading.Thread(target=work,daemon=True,name='session-audit')
+    stop.worker.start()
     return stop
 
 

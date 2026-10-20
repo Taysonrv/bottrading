@@ -2,6 +2,7 @@
 import argparse
 from contextlib import ExitStack
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -17,6 +18,23 @@ import coingecko_feed
 import auditar
 
 ROOT = Path(__file__).resolve().parent
+
+
+def exit_reason(root, name, code, now=None):
+    """Recognize only evidenced, successful planned exits."""
+    if code != 0:
+        return None
+    if (Path(root) / 'STOP').exists():
+        return 'stop'
+    if name == 'paper':
+        try:
+            state = json.loads((Path(root) / 'reports/local/live-small-paper.json').read_text(encoding='utf-8'))
+            end = state.get('end')
+            if type(end) in (int, float) and math.isfinite(end) and state.get('phase') == 'stopped' and end <= (time.time() if now is None else now):
+                return 'deadline'
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+    return None
 
 
 def preflight(root, port):
@@ -73,6 +91,7 @@ def main():
                 ('paper', [sys.executable, '-u', 'live_small_paper.py', '--hours', '24']),
                 ('stream', [node, 'market_stream.js']),
                 ('panel', [sys.executable, '-u', 'dashboard.py', '--port', str(args.port)])]
+            end_reason = 'failure'
             try:
                 for name, command in commands:
                     output = files.enter_context((folder / f'launcher-{name}.log').open('a', encoding='utf-8'))
@@ -86,7 +105,13 @@ def main():
                 next_summary = 0.0
                 while True:
                     for name, child in children:
-                        if child.poll() is not None:
+                        code = child.poll()
+                        if code is not None:
+                            reason = exit_reason(ROOT, name, code)
+                            if reason is not None:
+                                end_reason = reason
+                                print('Sessão encerrada: ' + reason + '. Carteira preservada.', flush=True)
+                                return
                             raise RuntimeError(f'{name} encerrou (código {child.returncode}). Confira reports/local/launcher-{name}.log. Outros componentes serão encerrados.')
                     current_status, summary = status(ROOT)
                     if current_status != previous_status or time.monotonic() >= next_summary:
@@ -95,9 +120,11 @@ def main():
                         next_summary = time.monotonic() + 300
                     time.sleep(1)
             except KeyboardInterrupt:
+                end_reason = 'interrupted'
                 print('Encerrando os componentes; carteira fictícia preservada.')
             finally:
                 audit_worker.set()
+                audit_worker.worker.join(timeout=5)
                 if context_feed is not None:
                     context_feed.set()
                 if alerts is not None:
@@ -114,6 +141,14 @@ def main():
                 stream_lock = folder / 'market-stream.lock'
                 if stream_pid and stream_lock.exists() and stream_lock.read_text().strip() == str(stream_pid):
                     stream_lock.unlink()
+                if any(name == 'paper' for name, _ in children):
+                    try:
+                        if audit_worker.worker.is_alive():
+                            raise RuntimeError('Auditoria ainda ocupada')
+                        summary_path = auditar.finalize(ROOT, end_reason)
+                        print('Resumo preservado: ' + str(summary_path.with_suffix('.md')), flush=True)
+                    except (Exception, SystemExit):
+                        print('Resumo indisponível; estado preservado. Execute python auditar.py para revisar.', flush=True)
     except (ValueError, RuntimeError, OSError) as error:
         raise SystemExit(str(error)) from None
 

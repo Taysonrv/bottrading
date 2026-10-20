@@ -38,3 +38,12 @@ O relé lê o relatório a cada dez segundos em uma thread separada, sem bloquea
 ## Diagnosticar coleta
 
 Se aparecer “Simulação erro”, execute `python diagnosticar.py` em outro terminal. Ele consulta horário, bid/ask e 60 candles horários públicos do par da posição (BTCUSDT se não houver posição). Salva reports/local/connection-diagnostic.json, sem alterar saldo, histórico ou STOP. Um diagnóstico posterior positivo não prova qual foi a falha anterior e não verifica todos os pares do universo. Não execute loops de reinício para tentar forçar operações.
+
+
+## Encerramento e resumo preservado
+
+Ao terminar o prazo da sessão, o iniciador reconhece a saída normal do simulador e encerra os componentes que iniciou. Ctrl+C também encerra o conjunto. STOP continua sendo um bloqueio de ordens; não liquida posições.
+
+Após encerrar os processos, salva um resumo único em `reports/local/session-summaries/`, em JSON e Markdown. O motivo distingue prazo concluído (`deadline`), STOP (`stop`), interrupção (`interrupted`) e falha (`failure`). Saídas inesperadas continuam sendo tratadas como erro.
+
+O resumo usa a última medição salva, sem obter um preço de liquidação e sem reiniciar saldo ou histórico. Uma interrupção não significa que o teste foi concluído. Se a auditoria falhar, o iniciador avisa; use `python auditar.py` para revisar o estado preservado. Uma sessão cujo prazo terminou exige revisão antes de outra sessão.
