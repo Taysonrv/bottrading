@@ -16,3 +16,7 @@ Antes da primeira execução, encerre os processos antigos pelos terminais que o
 Verificação sem iniciar: `python iniciar.py --check`. Outra porta: `python iniciar.py --port 8769`. Não execute junto com outros iniciadores na mesma pasta. Logs privados ficam em `reports/local/launcher-*.log`, ignorados pelo Git.
 
 O mesmo terminal mostra a última compra/venda, patrimônio estimado e resultado realizado quando há nova ordem, mudança de saúde ou a cada cinco minutos. Medições com 180 segundos ou mais são sinalizadas como antigas. Um processo vivo não garante cotação atualizada. Esses avisos não alteram a estratégia nem enviam notificações ao Telegram.
+
+## Explorer simplificado
+
+O VS Code exibe os pontos de entrada iniciar.py, dashboard.py e bot.py, os arquivos de configuração e os assets do painel. Módulos internos, testes, logs e documentos de pesquisa são ocultados pelo arquivo .vscode/settings.json, sem apagar ou mover nada. Para voltar a exibi-los, desative as entradas de files.exclude nas configurações do workspace. A tarefa “Spot Lab: iniciar tudo (20 USDT fictícios)” também inicia todos os componentes em um terminal.

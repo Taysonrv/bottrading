@@ -1,15 +1,114 @@
 {
   "version": "2.0.0",
   "tasks": [
-    {"label": "Bot: abrir servidor do painel local", "type": "process", "command": "python", "args": ["dashboard.py"], "problemMatcher": []},
-    {"label": "Bot: consultar carteira Spot (somente leitura)", "type": "process", "command": "python", "args": ["bot.py", "wallet-preview"], "problemMatcher": []},
-    {"label": "Bot: observar um candle sem ordens", "type": "process", "command": "python", "args": ["bot.py", "observe"], "problemMatcher": []},
-    {"label": "Bot: acompanhar sinais futuros", "type": "process", "command": "python", "args": ["bot.py", "watch"], "problemMatcher": []},
-    {"label": "Bot: consultar estado salvo", "type": "process", "command": "python", "args": ["bot.py", "status"], "problemMatcher": []},
-    {"label": "Bot: testar controles", "type": "process", "command": "python", "args": ["-m", "unittest", "-v"], "problemMatcher": []},
-    {"label": "Bot: validar estratégias", "type": "process", "command": "python", "args": ["bot.py", "validate"], "problemMatcher": []},
-    {"label": "Bot: simular um ciclo", "type": "process", "command": "python", "args": ["bot.py", "once"], "problemMatcher": []},
-    {"label": "Bot: iniciar simulação contínua", "type": "process", "command": "python", "args": ["bot.py", "run"], "problemMatcher": []},
-    {"label": "Bot: DESLIGAR", "type": "process", "command": "python", "args": ["bot.py", "stop"], "problemMatcher": []}
+    {
+      "label": "Spot Lab: iniciar tudo (20 USDT fictícios)",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "iniciar.py"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: abrir servidor do painel local",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "dashboard.py"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: consultar carteira Spot (somente leitura)",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "wallet-preview"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: observar um candle sem ordens",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "observe"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: acompanhar sinais futuros",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "watch"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: consultar estado salvo",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "status"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: testar controles",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "unittest",
+        "-v"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: validar estratégias",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "validate"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: simular um ciclo",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "once"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: iniciar simulação contínua",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "run"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bot: DESLIGAR",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bot.py",
+        "stop"
+      ],
+      "problemMatcher": []
+    }
   ]
 }
