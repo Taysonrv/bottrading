@@ -116,6 +116,7 @@ function render(data){if(typeof renderMetamask==='function') renderMetamask(data
  const labels={cycle:'Medição de patrimônio',blocked:'Operação bloqueada',paper_order:'Ordem simulada',validation:'Validação concluída',observation:'Amostra observada',review:'Revisão diária',started:'Processo iniciado',stopped:'Processo encerrado',error:'Ciclo interrompido'};
  $('events').innerHTML=data.events.length?data.events.map(e=>`<div class="event"><div class="event-icon">${e.kind==='error'?'!':e.kind==='blocked'?'■':'↗'}</div><div><div class="event-title">${escape(labels[e.kind]||e.kind)}${e.symbol?' · '+escape(e.symbol):''}</div><div class="event-detail">${escape(e.reason||e.error_type||(e.side?`${e.side==='BUY'?'Compra':'Venda'} · ${number(e.quantity,8)} · ${number(e.price)} USDT`:'Registro do processo de simulação'))}</div></div><time>${escape(date(e.time))}</time></div>`).join(''):empty('O diário está vazio.','Os eventos aparecerão aqui conforme o bot trabalhar.');
  renderLive20(data.live_small||{},data.stop);
+ renderOverview20(data.live_small||{},data.stop);
  if(typeof metamaskChrome==='function') metamaskChrome();
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
@@ -154,4 +155,32 @@ function renderLive20(s,stop=false){
  $('live20-summary').innerHTML=table(['Compras registradas','Vendas registradas','Vendas positivas','Vendas negativas','Taxas registradas USDT','Não realizado USDT'],[[buys.length,sales.length,sales.filter(o=>o.pnl>0).length,sales.filter(o=>o.pnl<0).length,number(fees,6),number(s.unrealized,6)]]);
  $('live20-orders').innerHTML=s.orders?.length?table(['Horário','Par','Ordem fictícia','Quantidade','Preço USDT','Taxa USDT','Realizado USDT','Motivo'],s.orders.slice(-100).reverse().map(o=>[escape(date(o.time)),escape(o.symbol),o.side==='BUY'?'Compra':'Venda',number(o.quantity,10),number(o.price,8),number(o.fee,6),number(o.pnl,6),escape(o.reason)])):empty('Nenhuma ordem fictícia até agora.','Sinais e mínimos são respeitados; não criamos negócios para preencher a tabela.');
  if(!$('live20').hidden){$('updated').textContent=$('live20-status').textContent;$('connection').textContent=blocked?'■ Simulação · ordens bloqueadas':fresh?'● Simulação 20 USDT · dados recentes':'○ Simulação 20 USDT · confira atualização';$('notice').textContent=blocked?health+'. Somente saldo fictício; posição não liquidada.':!fresh?'Somente saldo fictício. Medição antiga ou processo indisponível; valores exibidos são a última leitura salva.':'Somente saldo fictício. Estratégia experimental; nenhuma ordem real.';$('process-help').hidden=true;}
+}
+
+function renderOverview20(s,stop=false){
+ if(!s.started)return;
+ const orders=s.orders||[],fees=orders.reduce((a,o)=>a+(Number.isFinite(o.fee)?o.fee:0),0);
+ $('paper-lab').hidden=true;
+ $('test-capital').textContent=number(s.initial)+' USDT fictícios · sessão atual';
+ $('measurement-note').textContent='Indicadores desta página usam a mesma sessão de Simulação ao vivo. Última medição: '+date(s.updated)+'. Pesquisas antigas permanecem na aba Estratégias.';
+ $('equity').textContent=number(s.equity,4);$('pnl').textContent=number(s.pnl,4);
+ $('pnl').className=s.pnl<0?'negative':'positive';
+ $('drawdown').textContent=percent(s.drawdown);$('orders').textContent=String(orders.length);
+ $('fees').textContent='Taxas registradas: '+number(fees,6)+' USDT';
+ drawChart(s.curve||[]);
+ $('risk-state').textContent=stop?'■ STOP acionado':s.halted?'■ Drawdown bloqueado':'◉ Proteções da simulação 20 USDT';
+ $('risk-fill').style.width=`${Math.min(100,Math.max(0,(s.drawdown||0)/.15*100))}%`;
+ $('limit-order').textContent='Até 5 USDT / 25%';$('limit-symbol').textContent='Uma posição por vez';$('limit-total').textContent='25% na entrada';$('validation-status').textContent='Experimental · sem aprovação';
+ $('sample-count').textContent='Sessão 20 USDT';
+ $('signals').innerHTML=table(['Posição atual','Última decisão registrada'],[[escape(s.position?.symbol||'Em caixa'),escape(s.decision||'Aguardando consulta')]]);
+ $('signal-time').textContent='Decisão do processo de simulação; não é recomendação. Medição: '+date(s.updated);
+ const p=s.position;
+ $('positions-table').innerHTML=p?table(['Par','Quantidade','Custo USDT','Não realizado USDT'],[[escape(p.symbol),number(p.units,8),number(p.cost,6),number(s.unrealized,6)]]):empty('Sem posição fictícia aberta nesta sessão.');
+ const fresh=s.phase==='waiting'&&Date.now()/1000-s.updated>=0&&Date.now()/1000-s.updated<180;
+ if(!$('overview').hidden){
+  $('process-help').hidden=true;
+  $('updated').textContent='Sessão 20 USDT · medição '+date(s.updated);
+  $('connection').textContent=stop||s.halted?'■ Ordens bloqueadas':fresh?'● Simulação 20 USDT · dados recentes':'○ Simulação 20 USDT · confira atualização';
+  $('notice').textContent=stop?'STOP acionado; posição fictícia preservada.':s.halted?'Drawdown travado; ordens bloqueadas, sem liquidação automática.':fresh?'Resumo da simulação de 20 USDT. Somente saldo fictício; nenhuma ordem real.':'Dados sem atualização recente. Valores abaixo são a última medição salva da sessão de 20 USDT.';
+ }
 }

@@ -18,3 +18,15 @@ ctx.renderLive20(state);
 assert.match(element('connection').textContent,/dados recentes/);
 assert.doesNotMatch(element('notice').textContent,/STOP|Drawdown travado/);
 console.log('OK: STOP, drawdown, stale readings and recovery in live panel.');
+
+element('overview').hidden=false;
+ctx.renderOverview20({...state,equity:19.8,pnl:-.2,orders:[{fee:.01}]});
+assert.equal(element('equity').textContent,(19.8).toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4}));
+assert.equal(element('orders').textContent,'1');
+assert.equal(element('process-help').hidden,true);
+assert.match(element('notice').textContent,/Resumo da simulação de 20 USDT/);
+ctx.renderOverview20({...state,updated:Date.now()/1000-300});
+assert.match(element('notice').textContent,/sem atualização recente/);
+ctx.renderOverview20(state,true);
+assert.match(element('notice').textContent,/STOP acionado/);
+console.log('OK: overview uses live session, fees and stale/STOP status.');
