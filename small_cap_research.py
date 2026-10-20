@@ -26,8 +26,8 @@ def quantity(meta,reference,budget=None,units=None,stress=1):
     return float(q)
 
 
-def simulate(histories,metadata,fraction,stress=1,stop=lambda:False):
-    if fraction not in (.05,.25) or stress not in (1,2) or not histories:
+def simulate(histories,metadata,fraction,stress=1,stop=lambda:False,entry_interval=1):
+    if fraction not in (.05,.25) or stress not in (1,2) or not histories or entry_interval not in (1,24):
         raise ValueError('Cenário inválido')
     symbols=sorted(histories); times=[r['open_time'] for r in histories[symbols[0]]]
     if len(times)<62:
@@ -66,7 +66,7 @@ def simulate(histories,metadata,fraction,stress=1,stop=lambda:False):
                 else:
                     blocked+=1
             # Never rotate/rebuy in the candle of a sale; residual inventory prevents a second position.
-        else:
+        elif (i-60)%entry_interval==0:
             candidates=[]
             for s in symbols:
                 prev=[r['close'] for r in histories[s][i-60:i]]
