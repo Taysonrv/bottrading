@@ -102,6 +102,8 @@
     "test_wallet_quote_research.py": true,
     "wallet.py": true,
     "wallet_quote_research.py": true,
-    "paper_alerts.py": true
+    "paper_alerts.py": true,
+    "coingecko_feed.py": true,
+    "COINGECKO.md": true
   }
 }

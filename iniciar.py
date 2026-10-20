@@ -13,6 +13,7 @@ import time
 from paper_lab import lock
 from runtime_status import status
 import paper_alerts
+import coingecko_feed
 
 ROOT = Path(__file__).resolve().parent
 
@@ -65,6 +66,7 @@ def main():
             environment = os.environ.copy()
             environment.setdefault('SPOTLAB_ACCESS_CODE', secrets.token_urlsafe(18))
             alerts = paper_alerts.start(ROOT)
+            context_feed = coingecko_feed.start(ROOT)
             commands = [
                 ('paper', [sys.executable, '-u', 'live_small_paper.py', '--hours', '24']),
                 ('stream', [node, 'market_stream.js']),
@@ -93,6 +95,8 @@ def main():
             except KeyboardInterrupt:
                 print('Encerrando os componentes; carteira fictícia preservada.')
             finally:
+                if context_feed is not None:
+                    context_feed.set()
                 if alerts is not None:
                     alerts.set()
                 for _, child in reversed(children):

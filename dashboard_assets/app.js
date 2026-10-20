@@ -25,7 +25,7 @@ async function api(path, body){const response=await fetch(path,{method:body?'POS
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#25375c" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
-function render(data){if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
+function render(data){renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
@@ -207,4 +207,10 @@ function renderSessionHealth(s,stop=false){
   $('connection').textContent=stop||s.halted?'■ Ordens bloqueadas':fresh?'● Simulação 20 USDT · dados recentes':'○ Confira atualização da simulação';
   $('notice').textContent='Dados da sessão fictícia de 20 USDT. '+(stop?'STOP acionado; posição preservada.':s.halted?'Drawdown travado; posição preservada.':fresh?'Nenhuma ordem real.':'Valores da última leitura salva; confira o Diagnóstico.');
  }
+}
+
+function renderCoinGecko(s){
+ const age=Date.now()/1000-(s.updated||0),stale=age<0||age>1800;
+ $('cg-status').textContent=(s.status==='disabled'?'Integração opcional desativada. Configure a chave Demo localmente.':s.status==='error'?'Consulta falhou; valores anteriores podem estar desatualizados.':s.updated?stale?'Consulta antiga; confira o coletor.':'Contexto consultado.':'Aguardando configuração ou primeira consulta.')+(s.updated?' Última consulta: '+date(s.updated):'');
+ $('cg-table').innerHTML=s.rows?.length?table(['Ativo','Preço USD','Variação 24h','Volume 24h USD','Capitalização USD','Horário da fonte'],s.rows.map(r=>[escape(r.symbol),number(r.price_usd,6),percent(Number.isFinite(r.change_24h)?r.change_24h/100:null),number(r.volume_usd,0),number(r.market_cap_usd,0),escape(date(r.provider_updated))+((Date.now()/1000-r.provider_updated>1800)?' · Antigo':'')])):empty('Sem dados CoinGecko disponíveis.','A simulação Binance funciona independentemente desta integração.');
 }
