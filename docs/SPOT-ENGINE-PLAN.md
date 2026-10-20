@@ -14,7 +14,7 @@ spot_engine/
   config.py       # entregue: parâmetros imutáveis e validação local
   data.py         # entregue: ccxt REST e observação WebSocket de candles fechados
   strategy.py     # entregue: classe incremental de sinais EMA/ATR, sem ordens
-  risk.py         # estado persistente, limites e dimensionamento com custos
+  risk.py         # entregue: propostas e travas persistentes; execução pendente
   execution.py    # adaptadores paper/testnet; reconciliação e IDs idempotentes
   backtest.py     # mesmas regras, decisão no fechamento/execução posterior
   logger.py       # SQLite transacional, exportação CSV e UTC
@@ -107,7 +107,7 @@ git pull
 .\configurar-spot.ps1 -BaixarHistorico
 ```
 
-A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 38 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
+A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 57 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
 
 
 ## Módulo 3: sinais EMA/ATR — entregue
@@ -144,3 +144,41 @@ Esse relatório é exploração de histórico. Não escolher parâmetros após o
 Limitações: cruzamentos podem perder em mercados laterais, EMA atrasa, ATR não prevê direção e gaps podem ultrapassar stops. Testes causais não demonstram vantagem financeira.
 
 Fontes primárias consultadas em 20/10/2026: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.ewm.html e https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/atr.
+
+
+## Módulo 4: risco persistente e dimensionamento — entregue
+
+Código: `spot_engine/risk.py`; testes: `tests/test_spot_risk.py`. Módulo independente, sem rede, sem ordens e sem mudança na sessão antiga. Não é chamado pelo iniciador atual. Usa Decimal com precisão local fixa e SQLite transacional (synchronous FULL) para serializar as atualizações de risco.
+
+`Account` exige patrimônio marcado e caixa livre não negativos e coerentes, posições abertas e entradas pendentes. O módulo suporta uma posição por vez; recusa configuração de mais posições até existir controle de risco agregado e reservas.
+
+`RiskManager.initialize` é explícito e exige capital configurado integralmente em caixa, sem exposição. O estado fica em `reports/local/spot-risk/`, privado e ignorado pelo Git. Nunca inicializa automaticamente quando perde checkpoint ou marcador. Mudança de configuração, sessão ou bytes de risk.py causa incompatibilidade e exige revisão; não apague estado para contornar travas. Não há garantia contra adulteração deliberada ou remoção de todos os arquivos por um administrador.
+
+### Limites e persistência
+
+- Risco teórico de stop limitado a 1% do patrimônio marcado, incluindo taxas estimadas de entrada/saída e slippage. Com 20 USDT, teto teórico de 0,20 USDT, podendo ser menor pelo orçamento restante diário/drawdown.
+- Perda diária de 3% usa base marcada da primeira observação do dia UTC (capital na inicialização). Trava persiste após recuperação e reinício; só a mudança de dia UTC libera a trava diária. Perdas intradiárias entre observações não são reconstruídas automaticamente.
+- Drawdown de 10% usa pico global de patrimônio marcado. Ao atingir, trava permanece em outro dia ou após recuperação, até revisão externa; não há função automática de reset.
+- Limites de perda bloqueiam novas entradas, mas permitem proposta de redução de inventário. STOP manual tem prioridade e bloqueia entrada e redução: não liquida automaticamente. Falha na verificação de STOP recusa a avaliação.
+- Transições DAILY_LOSS, DRAWDOWN e STOP são registradas no SQLite uma vez por ativação. Não são notificações Telegram entregues: o futuro módulo de execução/notificações precisará encaminhá-las e confirmar envio.
+
+### Proposta de tamanho
+
+`plan_entry` exige cotação com no máximo 5 segundos, filtros normalizados com no máximo uma hora e par correspondente. Estima entrada adversa, stop e alvo por percentuais configurados, ajusta preços ao tick e quantidade para baixo ao step. Teto de 5 USDT por ordem inclui taxa de entrada. Considera caixa, risco restante diário/global, máximo de lote/notional e mínimos; nunca aumenta tamanho para atingir mínimo.
+
+`Rules` representa restrições normalizadas de LIMIT (lote/preço/notional), não todos os filtros da Binance. Ainda faltam consulta e tradução de exchangeInfo, filtros dinâmicos de preço, regras específicas de MARKET, média de referência para notional de mercado e reconciliação do saldo real. Por isso toda proposta tem `execution_authorized=False`; não encaminhá-la diretamente a uma exchange.
+
+`assess_reduction` exige quantidade positiva <= inventário informado e posição existente. Saídas também precisarão validar lote, notional, saldo, cotação e posição protegida no adaptador de execução. A função não vende nem instala stop.
+
+Propostas não reservam saldo ou risco e não são autorização durável. Antes de cada envio o próximo módulo deve reconciliar conta/pendências, reservar de forma atômica, reavaliar STOP e limites, usar clientOrderId e proteger a quantidade efetivamente preenchida. SQLite serializa checkpoints locais, sem atomicidade com a exchange. Stops não garantem preço de saída nem limite máximo da perda, especialmente em gaps e falta de liquidez.
+
+### Como testar
+
+```powershell
+git pull
+.\.venv-spot\Scripts\python.exe -m unittest tests.test_spot_risk -v
+```
+
+Os testes usam apenas carteiras e filtros fictícios em diretórios temporários. Cobrem custos, orçamento restante, mínimo inviável, preços/tamanhos, trava diária, pico e drawdown, reinício, corrupção, relógio, STOP, saídas de redução e entradas pendentes. Não inicializam risco para sua carteira atual. Nenhuma nova dependência.
+
+Fonte de filtros: https://github.com/binance/binance-spot-api-docs/blob/master/filters.md (consultada em 20/10/2026). Próxima entrega: execução paper com reconciliação, reservas, preenchimentos e proteção; execução real permanece indisponível.
