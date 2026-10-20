@@ -104,6 +104,8 @@
     "wallet_quote_research.py": true,
     "paper_alerts.py": true,
     "coingecko_feed.py": true,
-    "COINGECKO.md": true
+    "COINGECKO.md": true,
+    "session_audit.py": true,
+    "AUDITORIA-VALIDACAO.md": true
   }
 }
