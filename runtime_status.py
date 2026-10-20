@@ -32,7 +32,7 @@ def status(root, now=None):
     key = (health, last.get('time'), last.get('side'), symbol)
     message = f'Simulação {health} | patrimônio {equity} USDT | realizado {realized} USDT | última ordem: {side} {symbol}'
     if health == 'erro':
-        message += ' | Confira reports/local/launcher-paper.log; ordens podem estar bloqueadas.'
+        message += ' | Execute python diagnosticar.py e confira reports/local/launcher-paper.log; ordens podem estar bloqueadas.'
     if health == 'sem medição recente':
         message += ' | Confira conexão e processo; patrimônio é a última medição salva.'
     return key, message
