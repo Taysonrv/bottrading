@@ -18,7 +18,7 @@ spot_engine/
   execution.py    # entregue: broker paper transacional; Testnet/live pendentes
   backtest.py     # mesmas regras, decisão no fechamento/execução posterior
   logger.py       # SQLite transacional, exportação CSV e UTC
-  main.py         # composição; live indisponível até implementação e validação
+  main.py         # entregue: loop paper REST isolado; sem live
  tests/test_spot_config.py
 ```
 
@@ -107,7 +107,7 @@ git pull
 .\configurar-spot.ps1 -BaixarHistorico
 ```
 
-A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 79 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
+A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 91 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
 
 
 ## Módulo 3: sinais EMA/ATR — entregue
@@ -218,3 +218,32 @@ git pull
 ```
 
 Testes cobrem reserva, competição entre entradas, parcial, cancelamento, reinício, replay de IDs, rollback, STOP, gap no stop, alvo, venda parcial, ausência de liquidez, mínimos e ledger corrompido. Não iniciam negociação contínua e não calculam retorno de estratégia. Próximos módulos: histórico estruturado/exportação, backtest e orquestração dos novos componentes, depois integração ao painel e validação prospectiva. Testnet e live permanecem pendentes.
+
+
+## Sessão forward com dados reais e saldo fictício
+
+`spot_engine.main paper` conecta configuração, histórico, sinais, risco e broker paper usando somente horário, exchangeInfo e bookTicker públicos da Binance. Não precisa de API key, não move moedas e não modifica o simulador antigo.
+
+```powershell
+git pull
+.\.venv-spot\Scripts\python.exe -m unittest tests.test_spot_main -v
+.\.venv-spot\Scripts\python.exe -u -m spot_engine.main paper --session ema20 --hours 24 --order-budget 6
+```
+
+O mínimo de BTC/USDT consultado em 20/10/2026 foi 5 USDT de notional, com lote/step 0,00001 BTC. Um teto de 5 USDT incluindo taxas não comporta esse mínimo. Por isso a sessão nova usa explicitamente teto fictício de 6 USDT incluindo taxa, mantendo capital 20, risco de stop <=1%, uma posição e travas 3%/10%. O arredondamento ainda pode impedir uma entrada; não se aumenta risco para forçar negócio. O padrão de config.py continua 5 USDT, e a sessão antiga permanece inalterada. Os filtros atuais são relidos e não assumidos fixos.
+
+### Acompanhamento e persistência
+
+- Pasta separada: `reports/local/spot-runs/ema20/`. `status.json` mostra patrimônio, resultado, caixa, reserva, quantidade, fills de compra/venda, ordem ativa, proteção, sinal e eventos de risco. Fills parciais não são ciclos completos. `session.json` fixa código/configuração, início, término e origem do aquecimento.
+- Histórico transacional em `ema20/reports/local/spot-execution/paper.sqlite` e checkpoint de risco em `ema20/reports/local/spot-risk/risk.sqlite`.
+- Consulta rápida: `Get-Content .\reports\local\spot-runs\ema20\status.json`. Esse status ainda não é a tela principal do dashboard antigo; não some patrimônios de carteiras fictícias distintas.
+- Apenas um iniciador por sessão, com trava do sistema operacional em Windows/Linux. Reiniciar com os mesmos argumentos preserva saldo e prazo. Outra configuração/versão é recusada, sem reset automático.
+- Ao iniciar, reproduz os candles para aquecer os indicadores e não negocia sinais históricos. Só avalia novas barras fechadas; entrada com sinal atrasado mais de dois minutos é ignorada. Após período desligado, reaquece desde a origem original e pula entradas antigas.
+- Compras ainda pendentes expiram após 60 segundos ou são canceladas ao surgir sinal de saída, preservando eventual quantidade já preenchida.
+- Consulta de preços a cada 15 segundos por padrão. Filtros atualizados a cada 30 minutos. REST bookTicker não fornece idade original do livro: usa horário local de recebimento ajustado pelo horário da exchange, recusa chamadas de livro com duração >3 segundos e não garante latência de origem. Não é trading de alta frequência.
+- A liquidez por ciclo é hipótese de 10% do tamanho exibido no lado relevante. Amostras podem reutilizar liquidez; a fila real não é reproduzida. Não interpretar fills fictícios como execuções garantidas.
+- STOP da raiz do projeto OU da pasta da sessão é respeitado. Ctrl+C, STOP, fim do prazo ou falha persistente cancela pendências e preserva inventário, sem liquidar. Proteção sintética para junto com o processo; posições restantes continuam expostas.
+- Até cinco ciclos de falha transitória de conexão. Erro permanente, dados inconsistentes ou limite de API encerra. A carteira não é reiniciada. Status com ERROR deve ser tratado como medição potencialmente antiga (ver price_age_ms).
+- Telegram e visualização desta sessão nova no painel ainda precisam de integração; o terminal e status.json são o acompanhamento desta entrega. Nenhuma notificação foi prometida como entregue.
+
+Para testar apenas transporte use uma sessão separada, por exemplo `--session verificacao --once --order-budget 6`. O ciclo único termina cancelando pendências, sem apagar estado. O modo live não existe neste iniciador. Ficar ligado não obriga compras: sem cruzamento e filtros válidos permanece em caixa. Esta é validação prospectiva exploratória; o backtest estatístico e a Testnet continuam pendentes.

@@ -106,14 +106,15 @@ class RiskManager:
     SQLite transactions serialize checkpoint updates, not exchange requests.
     A proposal does NOT reserve cash or risk; execution must add reservations.
     """
-    def __init__(self, root, settings, session_id='ema-spot-v1'):
+    def __init__(self, root, settings, session_id='ema-spot-v1', control_root=None):
         if not isinstance(settings,Settings) or settings.max_positions!=1:
             raise RiskError('Esta versão de risco suporta uma posição por vez.')
         if not isinstance(session_id,str) or not session_id or len(session_id)>100:
             raise RiskError('Identificador de sessão inválido.')
+        self.control_root=Path(control_root).resolve() if control_root is not None else None
         self.root=Path(root);self.cfg=settings;self.folder=self.root/'reports/local/spot-risk'
         self.path=self.folder/'risk.sqlite';self.marker=self.folder/'initialized'
-        self.identity=hashlib.sha256(json.dumps({'session':session_id,'risk_code':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'config':{k:str(v) for k,v in asdict(settings).items()}},sort_keys=True).encode()).hexdigest()
+        self.identity=hashlib.sha256(json.dumps({'session':session_id,'control_root':str(self.control_root),'risk_code':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'config':{k:str(v) for k,v in asdict(settings).items()}},sort_keys=True).encode()).hexdigest()
 
     def initialize(self, account, now_ms):
         self._validate(account,now_ms)
@@ -136,9 +137,10 @@ class RiskManager:
 
     def _stopped(self):
         try:
-            (self.root/'STOP').stat()
-            return True
-        except FileNotFoundError:
+            for root in (self.root,self.control_root):
+                if root is None:continue
+                try:(root/'STOP').stat();return True
+                except FileNotFoundError:continue
             return False
         except OSError:
             raise RiskError('Não foi possível verificar STOP; operação recusada.') from None

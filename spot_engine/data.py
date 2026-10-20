@@ -114,6 +114,19 @@ class PublicBinance:
         interval(symbol, timeframe)
         return self._call(self._exchange.fetch_ohlcv, symbol, timeframe=timeframe, since=since, limit=limit)
 
+    def fetch_book(self,symbol):
+        interval(symbol,'1h')
+        return self._call(self._exchange.public_get_ticker_bookticker,{'symbol':symbol.replace('/','')})
+
+    def fetch_symbol_info(self,symbol):
+        interval(symbol,'1h')
+        response=self._call(self._exchange.public_get_exchangeinfo,{'symbol':symbol.replace('/','')})
+        try:
+            rows=response['symbols']
+            if len(rows)!=1 or rows[0]['symbol']!=symbol.replace('/',''):raise ValueError
+            return rows[0]
+        except (KeyError,TypeError,ValueError):raise DataError('Metadados públicos inválidos.') from None
+
 
 def retry(function, sleep=time.sleep):
     for attempt in range(3):

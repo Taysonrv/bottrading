@@ -29,8 +29,8 @@ class PaperBroker:
     Replaying an identical ID returns its stored result, never another fill.
     Protective stops are synthetic, require a running process and do not cap loss.
     """
-    def __init__(self,root,settings):
-        self.root=Path(root);self.cfg=settings;self.risk=RiskManager(root,settings)
+    def __init__(self,root,settings,control_root=None):
+        self.root=Path(root);self.cfg=settings;self.risk=RiskManager(root,settings,control_root=control_root)
         self.folder=self.root/'reports/local/spot-execution'
         self.path=self.folder/'paper.sqlite';self.marker=self.folder/'initialized'
         self.identity=digest({'risk':self.risk.identity,'execution':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})
