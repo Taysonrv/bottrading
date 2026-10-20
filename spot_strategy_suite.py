@@ -8,8 +8,9 @@ from market_view import public_get
 from small_cap_research import quantity
 from local_reports import destination
 import research
+import technical_strategies as technical
 
-STRATEGIES=('grid_spot_proxy','dca_spot','rebalance','souto_quartiles')
+STRATEGIES=('grid_spot_proxy','dca_spot','rebalance','souto_quartiles')+technical.NAMES
 SYMBOLS=('BTCUSDT','ETHUSDT','DOGEUSDT','PEPEUSDT')
 
 
@@ -47,6 +48,7 @@ def simulate(histories,metadata,strategy,stress=1,stop=lambda:False):
             if stop() or halted:break
             prev=[r['close'] for r in histories[s][i-60:i]];last=prev[-1];p=positions[s]
             value=p['units']*opens[s];desired=0.;reason=''
+            distance=None
             if strategy=='dca_spot' and (i-60)%24==0:
                 desired=5.;reason='DCA periódico de 24 horas'
             elif strategy=='rebalance' and (i-60)%24==0:
@@ -63,11 +65,19 @@ def simulate(histories,metadata,strategy,stress=1,stop=lambda:False):
                     if level:desired=equity*.0625*level-value;reason='Proxy de inventário em quatro degraus'
                     if p['units'] and p['units']*last*(1-slip)*(1-fee)>p['cost']*1.01:
                         desired=-value;reason='Saída da grade por ganho líquido de 1%'
+            elif strategy in technical.NAMES:
+                signal=technical.decision(strategy,histories[s][i-60:i],p,fee,slip)
+                desired=5. if signal['buy'] else -value if signal['sell'] else 0.
+                distance=signal['distance'];reason=strategy+' · hipótese técnica'
             if not desired:continue
             if desired>0:
                 exposure=sum(positions[k]['units']*opens[k] for k in symbols)
                 # Conservative cost budget respects 25% per asset and 60% total, including fee headroom.
                 budget=max(0,min(5,desired,cash,equity*.25-value,equity*.60-exposure))
+                if strategy=='pullback_atr' and distance:
+                    # Planned loss: price distance plus modeled buy/sell costs. Gaps can exceed this.
+                    loss_fraction=distance/opens[s]+2*(fee+slip)
+                    budget=min(budget,equity*.005/loss_fraction)
                 q=quantity(metadata[s],opens[s],budget=budget,stress=stress) if budget else 0
                 side='BUY';price=opens[s]*(1+slip)
             else:
@@ -78,6 +88,8 @@ def simulate(histories,metadata,strategy,stress=1,stop=lambda:False):
             charge=q*price*fee;fees+=charge
             if side=='BUY':
                 cost=q*price+charge;cash-=cost;p['units']+=q;p['cost']+=cost;pnl=None
+                if strategy=='pullback_atr' and distance:
+                    p['atr_stop']=price-distance;p['atr_target']=price+2*distance
             else:
                 removed=p['cost']*q/p['units'];pnl=q*price-charge-removed
                 cash+=q*price-charge;realized+=pnl;p['cost']-=removed;p['units']-=q
@@ -97,7 +109,7 @@ def main():
     histories={}
     for s in SYMBOLS:
         raw=public_get(f'klines?symbol={s}&interval=1h&limit=1000&startTime={end-780*3600000}&endTime={end-1}')
-        histories[s]=[dict(open_time=int(r[0]),open=float(r[1]),high=float(r[2]),low=float(r[3]),close=float(r[4])) for r in raw]
+        histories[s]=[dict(open_time=int(r[0]),open=float(r[1]),high=float(r[2]),low=float(r[3]),close=float(r[4]),volume=float(r[5])) for r in raw]
         research.check_rows(histories[s],780)
         if histories[s][-1]['open_time']!=end-3600000:raise ValueError('Dados atrasados')
     report=dict(created=dt.datetime.now(dt.timezone.utc).isoformat(),capital=20,start=end-720*3600000,end=end,
