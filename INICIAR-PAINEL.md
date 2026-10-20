@@ -54,3 +54,10 @@ O resumo usa a última medição salva, sem obter um preço de liquidação e se
 A auditoria também rejeita ordens e medições com horários futuros, curva posterior à última medição, posição com formato inválido e caixa reconstruído negativo. Sem posição aberta, o patrimônio deve corresponder ao caixa; uma posição não pode ter valor marcado negativo.
 
 Essas verificações conferem o histórico salvo sem alterar operações ou saldo. Uma reconciliação positiva não confirma o preço de mercado da posição, não prova vantagem da estratégia e não libera negociação real. Divergências aparecem em `issues` no JSON e nas limitações do relatório Markdown.
+
+
+## Consulta rápida sem abrir outro painel
+
+Execute `python runtime_status.py` na pasta do projeto para ler o último relatório salvo, sem iniciar processos ou consultar APIs. O mesmo resumo é exibido pelo iniciador: patrimônio, resultado realizado, última ordem, par da posição aberta, contagem de compras/vendas no histórico retido e idade da medição em segundos. Vendas parciais contam como vendas, não como ciclos completos. A idade da medição não comprova a atualidade de cada cotação.
+
+Quando o prazo foi atingido, o resumo pede conferir o encerramento e o relatório; isso não confirma que o processo já terminou. STOP e drawdown continuam tendo prioridade no aviso. Dados inválidos são apresentados como indisponíveis. A mudança da idade a cada segundo não dispara mensagens adicionais de estado no Telegram.

@@ -63,3 +63,36 @@ class RuntimeStatusTests(unittest.TestCase):
             self.assertIn('sem medição recente',status(root,1001)[1])
             self.write(root,updated=2000)
             self.assertIn('sem medição recente',status(root,1001)[1])
+
+    def test_age_counts_and_open_position_are_explicit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            self.write(root,position=dict(symbol='DOGEUSDT',units=5),orders=[dict(side='BUY'),dict(side='SELL')])
+            message=status(root,1181)[1]
+            self.assertIn('idade da medição: 181s',message)
+            self.assertIn('posição: DOGEUSDT',message)
+            self.assertIn('1 compras / 1 vendas',message)
+
+    def test_no_false_position_or_numeric_boolean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            self.write(root,position='secret-not-for-output',equity=True,updated=True)
+            message=status(root,2)[1]
+            self.assertIn('dados inválidos',message)
+            self.assertIn('patrimônio indisponível',message)
+            self.assertIn('idade da medição: indisponível',message)
+            self.assertNotIn('secret-not-for-output',message)
+            self.assertIn('sem medição recente',message)
+
+    def test_deadline_is_visible_without_claiming_process_stopped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.write(root,end=1001)
+            self.assertIn('prazo encerrado',status(root,1001)[1])
+            self.assertIn('confira encerramento',status(root,1001)[1])
+            (root/'STOP').touch()
+            self.assertIn('bloqueada por STOP',status(root,1001)[1])
+
+    def test_age_does_not_generate_status_change_every_second(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.write(root)
+            self.assertEqual(status(root,1001)[0],status(root,1002)[0])
