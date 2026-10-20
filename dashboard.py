@@ -71,6 +71,7 @@ def snapshot(root):
     micro_trial = read(root, 'reports/local/micro-results.json')
     small_cap = read(root, 'reports/local/small-cap-scan.json')
     small_comparison = read(root, 'reports/local/small-cap-comparison.json')
+    spot_suite = read(root, 'reports/local/spot-suite.json')
     lab_curve,lab_orders = lab_history(root,lab)
     daily = research_report(root, '2026-10-18-daily-results.json')
     grid = research_report(root, '2026-10-18-grid-results.json')
@@ -152,6 +153,9 @@ def snapshot(root):
             'performance': state.get('performance'), 'paper_cash': state.get('cash'),
             'curve': list(curve), 'events': list(reversed(events)), 'malformed_events': malformed,
             'strategy': config.get('strategy'),
+            'spot_suite': {'created':spot_suite.get('created'),'comparisons':[
+                {'strategy':r.get('strategy'),**{k:metric(r.get(k)) for k in ('stress','pnl','buys','sells','drawdown','blocked')}}
+                for r in spot_suite.get('comparisons',[])]},
             'small_comparison': {'created':small_comparison.get('created'),'start':small_comparison.get('start'),'end':small_comparison.get('end'),'comparisons':[
                 {k:metric(r.get(k)) for k in ('fraction','stress','pnl','buys','sells','blocked','drawdown')}
                 for r in small_comparison.get('comparisons',[])]},

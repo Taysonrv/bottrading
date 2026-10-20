@@ -30,6 +30,9 @@ function render(data){if(typeof renderMetamask==='function') renderMetamask(data
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
  const micro=data.micro_trial||{comparisons:[]};
+ const suite=data.spot_suite||{comparisons:[]},suiteNames={grid_spot_proxy:'Grid Spot · proxy de inventário',dca_spot:'DCA Spot · compras periódicas',rebalance:'Rebalanceamento',souto_quartiles:'Souto · quartis e médias 10/16/26'};
+ $('spot-suite').innerHTML=suite.comparisons.length?table(['Estratégia experimental','Custos','Resultado USDT','Compras','Vendas','Drawdown','Bloqueios'],suite.comparisons.map(r=>[escape(suiteNames[r.strategy]||r.strategy),`${number(r.stress,0)}x`,number(r.pnl,6),number(r.buys,0),number(r.sells,0),percent(r.drawdown),number(r.blocked,0)])):empty('Pesquisa Spot ainda não disponível.');
+ $('spot-suite-time').textContent=suite.created?`Consulta ${date(suite.created)} · 30 dias históricos, 20 USDT fictícios por cenário. Nenhuma adoção.`:'Execute python spot_strategy_suite.py.';
  const small=data.small_cap||{results:[]};
  const smallComparison=data.small_comparison||{comparisons:[]};
  $('small-comparison').innerHTML=smallComparison.comparisons.length?table(['Limite experimental','Custos','Resultado USDT','Compras','Vendas','Bloqueios','Drawdown'],smallComparison.comparisons.map(r=>[`${percent(r.fraction)} · até ${number(20*r.fraction,2)} USDT`,`${number(r.stress,0)}x`,number(r.pnl,6),number(r.buys,0),number(r.sells,0),number(r.blocked,0),percent(r.drawdown)])):empty('Comparação histórica ainda não disponível.');
