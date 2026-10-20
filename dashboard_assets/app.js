@@ -211,7 +211,7 @@ function renderSessionHealth(s,stop=false){
 
 function renderCoinGecko(s){
  const age=Date.now()/1000-(s.updated||0),stale=age<0||age>1800;
- $('cg-status').textContent=(s.status==='disabled'?'Integração opcional desativada. Configure a chave Demo localmente.':s.status==='error'?'Consulta falhou; valores anteriores podem estar desatualizados.':s.updated?stale?'Consulta antiga; confira o coletor.':'Contexto consultado.':'Aguardando configuração ou primeira consulta.')+(s.updated?' Última consulta: '+date(s.updated):'');
+ $('cg-status').textContent=(s.status==='disabled'?'Integração opcional desativada. Configure a chave Demo localmente.':s.status==='error'?(s.message||'Consulta falhou; valores anteriores podem estar desatualizados.')+(s.error_code?' Código: '+s.error_code+'.':''):s.updated?stale?'Consulta antiga; confira o coletor.':'Contexto consultado.':'Aguardando configuração ou primeira consulta.')+(s.updated?' Última consulta: '+date(s.updated):'');
  $('cg-table').innerHTML=s.rows?.length?table(['Ativo','Preço USD','Variação 24h','Volume 24h USD','Capitalização USD','Horário da fonte'],s.rows.map(r=>[escape(r.symbol),number(r.price_usd,6),percent(Number.isFinite(r.change_24h)?r.change_24h/100:null),number(r.volume_usd,0),number(r.market_cap_usd,0),escape(date(r.provider_updated))+((Date.now()/1000-r.provider_updated>1800)?' · Antigo':'')])):empty('Sem dados CoinGecko disponíveis.','A simulação Binance funciona independentemente desta integração.');
 }
 
