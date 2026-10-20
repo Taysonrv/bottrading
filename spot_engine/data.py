@@ -285,6 +285,38 @@ def save_history(history, folder):
     return path
 
 
+def load_history(path):
+    """Read collector artifacts only after hash, schema and coverage validation."""
+    path=Path(path)
+    try:
+        raw=path.read_bytes(); manifest=json.loads(path.with_suffix('.json').read_text(encoding='utf-8'))
+        if not isinstance(manifest,dict) or hashlib.sha256(raw).hexdigest()!=manifest.get('csv_sha256'):
+            raise DataError('Manifesto ou hash do CSV inválido.')
+        symbol=manifest['symbol'];timeframe=manifest['timeframe'];step=interval(symbol,timeframe)
+        start=milliseconds(manifest['start_ms']);end=milliseconds(manifest['end_ms']);observed=milliseconds(manifest['observed_ms'])
+        if start%step or end%step or not start<end<=observed or (end-start)//step>2_000_000:
+            raise DataError('Janela do manifesto inválida.')
+        reader=csv.DictReader(io.StringIO(raw.decode('utf-8')))
+        if reader.fieldnames!=['open_ms','open_utc','close_exclusive_utc','open','high','low','close','volume']:
+            raise DataError('Colunas CSV inválidas.')
+        candles=[]
+        for row in reader:
+            candle=parse_row([int(row['open_ms']),*[float(row[k]) for k in ('open','high','low','close','volume')]],step)
+            if candle.open_ms!=start+len(candles)*step or candle.open_ms>=end:
+                raise DataGapError('CSV contém lacuna, duplicata ou ordem temporal inválida.')
+            if row['open_utc']!=datetime.fromtimestamp(candle.open_ms/1000,timezone.utc).isoformat() or row['close_exclusive_utc']!=datetime.fromtimestamp((candle.open_ms+step)/1000,timezone.utc).isoformat():
+                raise DataError('Colunas UTC divergem dos timestamps.')
+            candles.append(candle)
+        if type(manifest['count']) is not int or len(candles)!=manifest['count'] or len(candles)!=(end-start)//step:
+            raise DataGapError('Cobertura do CSV incompleta.')
+        for key in ('pages','duplicates'):
+            if type(manifest[key]) is not int or manifest[key]<0:raise DataError('Contadores do manifesto inválidos.')
+        return History(symbol,timeframe,start,end,observed,tuple(candles),manifest['pages'],manifest['duplicates'])
+    except (OSError,KeyError,TypeError,ValueError,OverflowError,UnicodeError,csv.Error) as error:
+        if isinstance(error,DataError):raise
+        raise DataError('CSV ou manifesto ilegível/inválido.') from None
+
+
 def main():
     import argparse
     from .config import load_settings, ConfigError

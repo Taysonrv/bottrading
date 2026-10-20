@@ -13,7 +13,7 @@ spot_engine/
   __init__.py
   config.py       # entregue: parâmetros imutáveis e validação local
   data.py         # entregue: ccxt REST e observação WebSocket de candles fechados
-  strategy.py     # classe de sinais causal, sem acesso à conta
+  strategy.py     # entregue: classe incremental de sinais EMA/ATR, sem ordens
   risk.py         # estado persistente, limites e dimensionamento com custos
   execution.py    # adaptadores paper/testnet; reconciliação e IDs idempotentes
   backtest.py     # mesmas regras, decisão no fechamento/execução posterior
@@ -107,4 +107,40 @@ git pull
 .\configurar-spot.ps1 -BaixarHistorico
 ```
 
-A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 26 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
+A opcao `-BaixarHistorico` executa a coleta publica somente depois da instalacao, `pip check` e 38 testes. Sem a opcao, prepara apenas o ambiente. Nao modifica saldo, STOP ou estrategia. Uma pasta `.venv-spot` incompleta ou com outra versao e preservada para revisao, sem remocao automatica. Nas proximas coletas use `.\.venv-spot\Scripts\python.exe`, pois `python` pode continuar apontando para 3.15.
+
+
+## Módulo 3: sinais EMA/ATR — entregue
+
+Código completo: `spot_engine/strategy.py`; testes: `tests/test_spot_strategy.py`. A classe `EmaAtrStrategy` recebe configuração validada e um candle fechado por chamada, com instante de decisão explícito. Não lê saldo nem envia ordens. O módulo atual usa cálculo incremental com biblioteca padrão; pandas/numpy ficam para análise vetorial e relatórios do backtest, sem acrescentar dependências ao caminho de sinais agora.
+
+### Regras congeladas desta versão
+
+- EMA recursiva iniciada no primeiro fechamento: alpha = 2/(período+1), equivalente a `ewm(adjust=False)` sem valores ausentes. Padrões 20/50/200.
+- ATR de Wilder: true range é o maior entre máxima-mínima, distância da máxima ao fechamento anterior e distância da mínima ao fechamento anterior. Na primeira barra usa máxima-mínima. Inicialização pela média dos primeiros 14 TR; depois suavização com alpha = 1/14.
+- Aquecimento mínimo: três vezes o período da EMA de tendência (600 barras no padrão), ou ATR+1, o que for maior. Isso reduz dependência da semente, sem eliminá-la por completo.
+- `ENTER_LONG`: EMA rápida anterior <= lenta anterior e rápida atual > lenta atual, fechamento > EMA 200, ATR/fechamento entre 0,001 e 0,05 inclusive. Comparações usam indicadores apenas até o candle corrente fechado.
+- `EXIT_LONG`: cruzamento inverso da EMA rápida para baixo da lenta. Não é bloqueado pelo filtro ATR de entrada. O futuro motor deve ignorar essa intenção se não houver posição; não é autorização para short.
+- Demais casos: `HOLD`, com motivos `WARMUP`, `NO_CROSS`, `TREND_FILTER` ou `ATR_FILTER`. Sem compra repetida simplesmente por permanecer acima das médias.
+- Duplicatas, retrocesso do relógio, candles em formação, lacunas e overflow são recusados sem alterar o estado dos indicadores. Continuidade será recuperada pelo módulo de dados; nunca pulada silenciosamente.
+
+A classe mantém os indicadores somente em memória. Reinício exige reproduzir o histórico causal; checkpoint/recuperação serão responsabilidade da orquestração futura. Não injete a classe diretamente na sessão antiga.
+
+### Como testar e inspecionar
+
+```powershell
+git pull
+.\.venv-spot\Scripts\python.exe -m unittest tests.test_spot_strategy -v
+$csv = Get-ChildItem .\reports\local\spot-data\BTC-USDT-1h-*.csv | Sort-Object LastWriteTime | Select-Object -Last 1
+.\.venv-spot\Scripts\python.exe -m spot_engine.strategy --csv $csv.FullName
+```
+
+Use um CSV do par/timeframe configurado; a falta de arquivo ou divergência de configuração deve ser corrigida antes de executar. O leitor também confere a grade temporal, colunas UTC, cobertura e hash do manifesto. Hash detecta mudanças em relação ao manifesto; não autentica um arquivo de origem desconhecida.
+
+A inspeção salva um resumo único em `reports/local/spot-signals/` com contagem de intenções, configuração e hashes do CSV/código. `orders=0`, `pnl=null`, `approved=false`. Intenções de entrada/saída não são execuções, ciclos completos, taxa de acerto ou lucro. A data de decisão histórica é o fechamento teórico, não uma medição de latência real.
+
+Esse relatório é exploração de histórico. Não escolher parâmetros após observar os resultados e chamar o mesmo período de teste reservado. O backtest futuro deverá separar períodos, custos, instantes executáveis e tratamento intrabar. Stop, take profit, dimensionamento e limites de 1%/3%/10% continuam pendentes do próximo módulo `risk.py`.
+
+Limitações: cruzamentos podem perder em mercados laterais, EMA atrasa, ATR não prevê direção e gaps podem ultrapassar stops. Testes causais não demonstram vantagem financeira.
+
+Fontes primárias consultadas em 20/10/2026: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.ewm.html e https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/atr.
