@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 from paper_lab import lock
+from runtime_status import status
 
 ROOT = Path(__file__).resolve().parent
 
@@ -75,10 +76,17 @@ def main():
                 print(f'Painel: http://127.0.0.1:{args.port}/', flush=True)
                 print('Código de acesso: ' + environment['SPOTLAB_ACCESS_CODE'], flush=True)
                 print('20 USDT fictícios. Ctrl+C encerra os três processos iniciados aqui. Não feche este terminal.', flush=True)
+                previous_status = None
+                next_summary = 0.0
                 while True:
                     for name, child in children:
                         if child.poll() is not None:
                             raise RuntimeError(f'{name} encerrou (código {child.returncode}). Confira reports/local/launcher-{name}.log. Outros componentes serão encerrados.')
+                    current_status, summary = status(ROOT)
+                    if current_status != previous_status or time.monotonic() >= next_summary:
+                        print(summary, flush=True)
+                        previous_status = current_status
+                        next_summary = time.monotonic() + 300
                     time.sleep(1)
             except KeyboardInterrupt:
                 print('Encerrando os componentes; carteira fictícia preservada.')
