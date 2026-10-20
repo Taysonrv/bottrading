@@ -37,3 +37,29 @@ class RuntimeStatusTests(unittest.TestCase):
     def test_missing_report_does_not_crash_launcher(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(status(Path(tmp))[0], ('missing',))
+
+    def test_stop_overrides_fresh_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); self.write(root); (root/'STOP').touch()
+            self.assertIn('bloqueada por STOP',status(root,1001)[1])
+
+    def test_halted_cannot_look_healthy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); self.write(root, halted=True)
+            self.assertIn('bloqueada por drawdown',status(root,1001)[1])
+
+    def test_valid_json_with_wrong_shape_does_not_stop_launcher(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); self.write(root)
+            path=root/'reports/local/live-small-paper.json'
+            path.write_text('[]')
+            self.assertEqual(status(root)[0],('invalid',))
+            self.write(root, orders={'unexpected':'shape'})
+            self.assertIn('última ordem: nenhuma',status(root,1001)[1])
+
+    def test_starting_and_future_timestamp_are_not_healthy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); self.write(root,phase='starting')
+            self.assertIn('sem medição recente',status(root,1001)[1])
+            self.write(root,updated=2000)
+            self.assertIn('sem medição recente',status(root,1001)[1])

@@ -115,7 +115,7 @@ function render(data){if(typeof renderMetamask==='function') renderMetamask(data
  $('positions-table').innerHTML=p.assets?.length?table(['Ativo','Quantidade','Custo contabilizado','Valor líquido estimado','Não realizado'],p.assets.map(a=>[escape(a.symbol),number(a.quantity,8),number(a.cost_basis),number(a.net_liquidation_estimate),number(a.unrealized_pnl)])):empty('Sem posições simuladas medidas.','Saldos da Binance não são importados automaticamente.');
  const labels={cycle:'Medição de patrimônio',blocked:'Operação bloqueada',paper_order:'Ordem simulada',validation:'Validação concluída',observation:'Amostra observada',review:'Revisão diária',started:'Processo iniciado',stopped:'Processo encerrado',error:'Ciclo interrompido'};
  $('events').innerHTML=data.events.length?data.events.map(e=>`<div class="event"><div class="event-icon">${e.kind==='error'?'!':e.kind==='blocked'?'■':'↗'}</div><div><div class="event-title">${escape(labels[e.kind]||e.kind)}${e.symbol?' · '+escape(e.symbol):''}</div><div class="event-detail">${escape(e.reason||e.error_type||(e.side?`${e.side==='BUY'?'Compra':'Venda'} · ${number(e.quantity,8)} · ${number(e.price)} USDT`:'Registro do processo de simulação'))}</div></div><time>${escape(date(e.time))}</time></div>`).join(''):empty('O diário está vazio.','Os eventos aparecerão aqui conforme o bot trabalhar.');
- renderLive20(data.live_small||{});
+ renderLive20(data.live_small||{},data.stop);
  if(typeof metamaskChrome==='function') metamaskChrome();
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
@@ -131,9 +131,10 @@ function donut(target,segments,label){
  const rings=valid.map(x=>{const length=x.value/total*100,part=`<circle cx="90" cy="90" r="64" fill="none" stroke="${x.color}" stroke-width="18" pathLength="100" stroke-dasharray="${length} ${100-length}" stroke-dashoffset="${-offset}" transform="rotate(-90 90 90)"><title>${escape(x.name)}: ${escape(number(x.value,4))}</title></circle>`;offset+=length;return part;}).join('');
  $(target).innerHTML=`<div class="donut"><svg viewBox="0 0 180 180" role="img" aria-label="${escape(label)}"><circle cx="90" cy="90" r="64" fill="none" stroke="#202c49" stroke-width="18"/>${rings}<text x="90" y="85" text-anchor="middle" class="donut-total">${escape(number(total, label==='Ordens registradas'?0:2))}</text><text x="90" y="107" text-anchor="middle" class="donut-unit">${escape(label==='Ordens registradas'?'ORDENS':'USDT')}</text></svg></div><div class="donut-legend">${valid.map(x=>`<div><span><i style="background:${x.color}"></i>${escape(x.name)}</span><b>${escape(percent(x.value/total))}</b></div>`).join('')}</div>`;
 }
-function renderLive20(s){
+function renderLive20(s,stop=false){
  live20MarketState=s;
  const age=Date.now()/1000-(s.updated||0),fresh=s.phase==='waiting'&&age>=0&&age<180;
+ const blocked=stop||s.halted,health=stop?'STOP acionado · posição preservada':s.halted?'Drawdown travado · ordens bloqueadas':fresh?'Processo com dados recentes':s.phase==='error'?'Ciclo bloqueado':s.phase==='stopped'?'Encerrado':'Aguardando dados recentes';
  const metricCards=[['Patrimônio líquido',number(s.equity,4),'USDT · estimativa após custos','cyan'],['Resultado da sessão',number(s.pnl,4),'USDT · realizado + não realizado',s.pnl<0?'coral':'purple'],['Drawdown atual',percent(s.drawdown),'Bloqueio de ordens em 15%','purple'],['Ordens registradas',String((s.orders||[]).length),'Compras e vendas fictícias','blue']];
  $('live20-cards').innerHTML=metricCards.map(([title,value,note,color])=>`<article class="metric accent-${color}"><p>${title}<span>↗</span></p><h2>${escape(value)}</h2><small>${note}</small></article>`).join('');
  labChart('live20-hero-chart',s.curve||[],'equity');
@@ -141,9 +142,9 @@ function renderLive20(s){
  donut('live20-allocation',[{name:'Caixa disponível',value:s.cash,color:'#22d3ee'},{name:s.position?.symbol||'Posição',value:allocated,color:'#a78bfa'}],'Capital líquido estimado');
  donut('live20-operation-pie',[{name:'Compras',value:(s.orders||[]).filter(o=>o.side==='BUY').length,color:'#34e8ad'},{name:'Vendas',value:(s.orders||[]).filter(o=>o.side==='SELL').length,color:'#ff7ca8'}],'Ordens registradas');
 
- $('live20-status').textContent=s.started?`${fresh?'Processo com dados recentes':s.phase==='error'?'Ciclo bloqueado':s.phase==='stopped'?'Encerrado':'Aguardando dados recentes'} · medição ${date(s.updated)} · término ${date(s.end)}`:'Processo ainda não iniciado';
+ $('live20-status').textContent=s.started?`${health} · medição ${date(s.updated)} · término ${date(s.end)}`:'Processo ainda não iniciado';
  $('live20-metrics').innerHTML=table(['Inicial USDT','Caixa USDT','Líquido estimado USDT','Resultado USDT','Realizado USDT','Drawdown'],[[number(s.initial),number(s.cash),number(s.equity,6),number(s.pnl,6),number(s.realized,6),percent(s.drawdown)]]);
- $('live20-decision').textContent=s.decision||'Aguardando primeira consulta pública';
+ $('live20-decision').textContent=blocked?health+'; nenhuma liquidação automática. Última decisão registrada: '+(s.decision||'sem decisão'):s.decision||'Aguardando primeira consulta pública';
  labChart('live20-chart',s.curve||[],'equity');
  const p=s.position;
  $('live20-position').innerHTML=p?table(['Ativo','Quantidade','Custo USDT','Não realizado USDT'],[[escape(p.symbol),number(p.units,10),number(p.cost,6),number(s.unrealized,6)]]):empty('Sem posição fictícia aberta.');
@@ -152,5 +153,5 @@ function renderLive20(s){
  const orders=s.orders||[],sales=orders.filter(o=>o.side==='SELL'),buys=orders.filter(o=>o.side==='BUY'),fees=orders.reduce((total,o)=>total+(Number.isFinite(o.fee)?o.fee:0),0);
  $('live20-summary').innerHTML=table(['Compras registradas','Vendas registradas','Vendas positivas','Vendas negativas','Taxas registradas USDT','Não realizado USDT'],[[buys.length,sales.length,sales.filter(o=>o.pnl>0).length,sales.filter(o=>o.pnl<0).length,number(fees,6),number(s.unrealized,6)]]);
  $('live20-orders').innerHTML=s.orders?.length?table(['Horário','Par','Ordem fictícia','Quantidade','Preço USDT','Taxa USDT','Realizado USDT','Motivo'],s.orders.slice(-100).reverse().map(o=>[escape(date(o.time)),escape(o.symbol),o.side==='BUY'?'Compra':'Venda',number(o.quantity,10),number(o.price,8),number(o.fee,6),number(o.pnl,6),escape(o.reason)])):empty('Nenhuma ordem fictícia até agora.','Sinais e mínimos são respeitados; não criamos negócios para preencher a tabela.');
- if(!$('live20').hidden){$('updated').textContent=$('live20-status').textContent;$('connection').textContent=fresh?'● Simulação 20 USDT · dados recentes':'○ Simulação 20 USDT · confira atualização';$('notice').textContent='Somente saldo fictício. Estratégia experimental; nenhuma ordem real.';$('process-help').hidden=true;}
+ if(!$('live20').hidden){$('updated').textContent=$('live20-status').textContent;$('connection').textContent=blocked?'■ Simulação · ordens bloqueadas':fresh?'● Simulação 20 USDT · dados recentes':'○ Simulação 20 USDT · confira atualização';$('notice').textContent=blocked?health+'. Somente saldo fictício; posição não liquidada.':!fresh?'Somente saldo fictício. Medição antiga ou processo indisponível; valores exibidos são a última leitura salva.':'Somente saldo fictício. Estratégia experimental; nenhuma ordem real.';$('process-help').hidden=true;}
 }

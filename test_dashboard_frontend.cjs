@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const elements=new Map();
+function element(id){if(!elements.has(id))elements.set(id,{hidden:false,textContent:'',innerHTML:'',style:{},addEventListener(){}});return elements.get(id);}
+const ctx={document:{getElementById:element,querySelectorAll:()=>[]},setInterval:()=>0,clearInterval(){},fetch:()=>new Promise(()=>{}),console};
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(__dirname+'/dashboard_assets/app.js','utf8'),ctx);
+const state={phase:'waiting',started:Date.now()/1000-60,updated:Date.now()/1000,end:Date.now()/1000+3600,initial:20,cash:20,equity:20,pnl:0,drawdown:0,realized:0,orders:[],curve:[]};
+ctx.renderLive20(state,true);
+assert.match(element('notice').textContent,/STOP acionado/);
+assert.match(element('connection').textContent,/ordens bloqueadas/);
+ctx.renderLive20({...state,halted:true});
+assert.match(element('notice').textContent,/Drawdown travado/);
+ctx.renderLive20({...state,updated:Date.now()/1000-200});
+assert.match(element('notice').textContent,/Medição antiga/);
+ctx.renderLive20(state);
+assert.match(element('connection').textContent,/dados recentes/);
+assert.doesNotMatch(element('notice').textContent,/STOP|Drawdown travado/);
+console.log('OK: STOP, drawdown, stale readings and recovery in live panel.');
