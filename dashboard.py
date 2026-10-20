@@ -273,6 +273,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {'csrf': session['csrf'], 'data': snapshot(self.server.root)})
             except (ValueError, TypeError):
                 return self.send(503, {'error': 'Relatórios temporariamente indisponíveis'})
+        if path == '/api/live-market':
+            symbol=parse_qs(urlsplit(self.path).query).get('symbol',[''])[0]
+            if not market_view.live_symbol(symbol):
+                return self.send(400,{'error':'Ativo não permitido'})
+            try:
+                with self.server.market_mutex:
+                    key='live:'+symbol
+                    cached=self.server.market_cache.get(key)
+                    if not cached or time.time()-cached['as_of']>=30:
+                        cached=market_view.load_live(symbol)
+                        self.server.market_cache[key]=cached
+                return self.send(200,cached)
+            except (OSError,ValueError,KeyError,TypeError,IndexError):
+                return self.send(503,{'error':'Candles indisponíveis. A estratégia não foi alterada.'})
         if path == '/api/lab-market':
             symbol=parse_qs(urlsplit(self.path).query).get('symbol',[''])[0]
             if symbol not in ('BTCUSDT','ETHUSDT'):

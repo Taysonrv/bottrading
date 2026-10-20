@@ -22,3 +22,32 @@ async function refreshMarket(force=false){
 }
 $('lab-market-symbol').addEventListener('change',()=>{marketData=null;$('lab-candles').innerHTML=empty('Carregando candles…');$('lab-exit-guide').innerHTML='';$('lab-candle-time').textContent='Consultando '+$('lab-market-symbol').value+'…';void refreshMarket(true);});
 setInterval(()=>{if(marketData&&marketData.symbol===$('lab-market-symbol').value)renderMarket(marketData);void refreshMarket();},5000);
+
+let liveCandleBusy=false,liveCandleFetched=0,liveCandleData=null,liveRequestedSymbol=null;
+function renderLiveCandles(m){
+ const s=live20MarketState,p=s?.position;
+ if(!p||p.symbol!==m.symbol||!(p.units>0&&p.cost>0))return;
+ const c=m.candles,first=c[0].time,end=c.at(-1).time+900;
+ const breakEven=p.cost/p.units/(.999*.999),refs=[
+  [breakEven,'#ffd078','Equilíbrio'],[breakEven*1.01,'#34e8ad','Alvo +1%'],[breakEven*.98,'#ff7ca8','Proteção −2%']];
+ const orders=(s.orders||[]).filter(o=>o.symbol===m.symbol&&o.time>=first&&o.time<=end);
+ const prices=[...c.flatMap(r=>[r.low,r.high]),...refs.map(r=>r[0]),...orders.map(o=>o.price)];
+ const low=Math.min(...prices),high=Math.max(...prices),span=high-low||high*.01;
+ const x=t=>30+(t-first)/(end-first)*700,y=v=>30+(high-v)/span*230;
+ $('live20-candles').innerHTML=`<svg viewBox="0 0 950 310" role="img" aria-label="Candles ${escape(m.symbol)} com referências de saída"><text x="30" y="15" fill="#a0b1d0" font-size="11">${escape(m.symbol)} · ${number(high,8)} USDT</text>${[30,145,260].map(v=>`<path d="M30 ${v} H730" stroke="#2b3c5a" stroke-dasharray="3 5"/>`).join('')}${c.map(r=>{const cx=x(r.time+450),color=r.close>=r.open?'#34e8ad':'#ff7ca8';return `<g opacity="${r.closed?1:.55}"><title>${escape(date(r.time))} · A ${number(r.open,8)} · M ${number(r.high,8)} · m ${number(r.low,8)} · F ${number(r.close,8)}${r.closed?'':' · Em formação'}</title><path d="M${cx} ${y(r.high)} V${y(r.low)}" stroke="${color}"/><rect x="${cx-3}" y="${Math.min(y(r.open),y(r.close))}" width="6" height="${Math.max(1,Math.abs(y(r.open)-y(r.close)))}" fill="${color}"/></g>`;}).join('')}${refs.map(([v,color,label])=>`<path d="M30 ${y(v)} H730" stroke="${color}" stroke-dasharray="5 5"/><text x="740" y="${y(v)-5}" fill="${color}" font-size="11">${label} ${number(v,8)}</text>`).join('')}${orders.map(o=>`<g><title>${escape(date(o.time))} · ${o.side==='BUY'?'Compra':'Venda'} fictícia</title><circle cx="${x(o.time)}" cy="${y(o.price)}" r="5" fill="${o.side==='BUY'?'#22d3ee':'#ff7ca8'}"/><text x="${x(o.time)+7}" y="${y(o.price)-8}" fill="#f2f6ff" font-size="12">${o.side==='BUY'?'C':'V'}</text></g>`).join('')}<text x="30" y="288" fill="#a0b1d0" font-size="11">${escape(date(first))} → ${escape(date(end))}</text></svg>`;
+ $('live20-candle-time').textContent=`${m.symbol} · consulta ${date(m.as_of)} · cotação visual independente da execução; atualização a cada 30 segundos.`;
+}
+async function refreshLiveCandles(){
+ if($('app').hidden||$('live20').hidden)return;
+ const symbol=live20MarketState?.position?.symbol;
+ if(!symbol){liveCandleData=null;$('live20-candles').innerHTML=empty('Sem posição aberta.','Candles aparecerão quando houver uma compra fictícia.');$('live20-candle-time').textContent='';$('live20-candle-error').textContent='';return;}
+ if(liveCandleData?.symbol!==symbol){liveCandleData=null;$('live20-candles').innerHTML=empty('Consultando candles de '+symbol+'…');$('live20-candle-time').textContent='';}
+ if(liveRequestedSymbol!==symbol){liveRequestedSymbol=symbol;liveCandleFetched=0;}
+ if(liveCandleData)renderLiveCandles(liveCandleData);
+ if(liveCandleBusy||Date.now()-liveCandleFetched<30000)return;
+ liveCandleBusy=true;
+ try{const m=await api('/api/live-market?symbol='+encodeURIComponent(symbol));if(live20MarketState?.position?.symbol===symbol){liveCandleData=m;liveCandleFetched=Date.now();renderLiveCandles(m);$('live20-candle-error').textContent='';}}
+ catch(e){$('live20-candle-error').textContent=e.message+' Confira a data da última consulta; candles anteriores podem estar desatualizados.';}
+ finally{liveCandleFetched=Date.now();liveCandleBusy=false;}
+}
+setInterval(()=>void refreshLiveCandles(),5000);

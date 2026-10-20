@@ -58,6 +58,20 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(fetch.call_count,1)
         self.assertFalse((self.root/'state.json').exists())
 
+    def test_live_candles_require_login_and_reject_unlisted_pair(self):
+        self.assertEqual(self.request('GET','/api/live-market?symbol=DOGEUSDT')[0],401)
+        with patch.object(dashboard.market_view,'load_live') as fetch:
+            self.assertEqual(self.request('GET','/api/live-market?symbol=UNKNOWN',headers=self.login())[0],400)
+            fetch.assert_not_called()
+
+    def test_live_candles_cached_separately(self):
+        headers=self.login()
+        with patch.object(dashboard.market_view,'load_live',return_value={'as_of':time.time(),'symbol':'DOGEUSDT','candles':[]}) as fetch:
+            for _ in range(2):
+                self.assertEqual(self.request('GET','/api/live-market?symbol=DOGEUSDT',headers=headers)[0],200)
+            self.assertEqual(fetch.call_count,1)
+        self.assertFalse((self.root/'reports/local/live-small-paper.json').exists())
+
     def test_stop_requires_session_and_csrf(self):
         self.assertEqual(self.request('POST', '/api/stop', {})[0], 403)
         headers = self.login()

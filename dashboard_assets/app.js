@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 let csrf = '', timer, busy = false;
-let labMarketState=null;
+let labMarketState=null,live20MarketState=null;
 const number = (value, digits=2) => Number.isFinite(value) ? value.toLocaleString('pt-BR', {minimumFractionDigits:digits, maximumFractionDigits:digits}) : '—';
 const percent = v => Number.isFinite(v) ? number(v*100) + '%' : '—';
 const date = value => { if(!value) return 'Sem leitura'; const d=new Date(typeof value==='number'?value*1000:value); return Number.isNaN(d.getTime())?'Sem leitura':d.toLocaleString('pt-BR'); };
@@ -132,6 +132,7 @@ function donut(target,segments,label){
  $(target).innerHTML=`<div class="donut"><svg viewBox="0 0 180 180" role="img" aria-label="${escape(label)}"><circle cx="90" cy="90" r="64" fill="none" stroke="#202c49" stroke-width="18"/>${rings}<text x="90" y="85" text-anchor="middle" class="donut-total">${escape(number(total, label==='Ordens registradas'?0:2))}</text><text x="90" y="107" text-anchor="middle" class="donut-unit">${escape(label==='Ordens registradas'?'ORDENS':'USDT')}</text></svg></div><div class="donut-legend">${valid.map(x=>`<div><span><i style="background:${x.color}"></i>${escape(x.name)}</span><b>${escape(percent(x.value/total))}</b></div>`).join('')}</div>`;
 }
 function renderLive20(s){
+ live20MarketState=s;
  const age=Date.now()/1000-(s.updated||0),fresh=s.phase==='waiting'&&age>=0&&age<180;
  const metricCards=[['Patrimônio líquido',number(s.equity,4),'USDT · estimativa após custos','cyan'],['Resultado da sessão',number(s.pnl,4),'USDT · realizado + não realizado',s.pnl<0?'coral':'purple'],['Drawdown atual',percent(s.drawdown),'Bloqueio de ordens em 15%','purple'],['Ordens registradas',String((s.orders||[]).length),'Compras e vendas fictícias','blue']];
  $('live20-cards').innerHTML=metricCards.map(([title,value,note,color])=>`<article class="metric accent-${color}"><p>${title}<span>↗</span></p><h2>${escape(value)}</h2><small>${note}</small></article>`).join('');

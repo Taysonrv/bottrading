@@ -41,3 +41,31 @@ def load(symbol, get=public_get, now=None):
     return dict(symbol=symbol,as_of=time.time(),candles=candles,sma200=statistics.mean(prices),
                 last_daily_close=prices[-1],next_close_reference=statistics.mean(prices[-199:]),
                 next_daily_close=(int(now)//86400+1)*86400)
+
+
+def live_symbol(symbol):
+    from small_cap_scan import CRYPTO_BASES
+    return symbol in {base+'USDT' for base in CRYPTO_BASES}
+
+
+def load_live(symbol, get=public_get, now=None):
+    if not live_symbol(symbol):
+        raise ValueError('Ativo não permitido')
+    now=time.time() if now is None else now
+    candles=[]
+    for row in get('klines?symbol='+symbol+'&interval=15m&limit=60'):
+        item=dict(time=int(row[0])/1000,close_time=int(row[6])/1000,
+                  open=float(row[1]),high=float(row[2]),low=float(row[3]),close=float(row[4]))
+        if not all(math.isfinite(item[k]) and item[k]>0 for k in ('open','high','low','close')):
+            raise ValueError('Preço inválido')
+        if item['low']>min(item['open'],item['close']) or item['high']<max(item['open'],item['close']):
+            raise ValueError('OHLC inválido')
+        if item['close_time']!=item['time']+899.999:
+            raise ValueError('Intervalo inválido')
+        item['closed']=item['close_time']<now
+        candles.append(item)
+    if len(candles)<2 or not 0<=now-candles[-1]['time']<1800:
+        raise ValueError('Candles atrasados')
+    if any(b['time']-a['time']!=900 for a,b in zip(candles,candles[1:])):
+        raise ValueError('Lacunas nos candles')
+    return dict(symbol=symbol,as_of=now,candles=candles)
