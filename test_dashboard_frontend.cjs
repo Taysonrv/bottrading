@@ -30,3 +30,13 @@ assert.match(element('notice').textContent,/sem atualização recente/);
 ctx.renderOverview20(state,true);
 assert.match(element('notice').textContent,/STOP acionado/);
 console.log('OK: overview uses live session, fees and stale/STOP status.');
+
+ctx.renderSessionHealth({...state,orders:[{side:'SELL',symbol:'DOGEUSDT',quantity:62,price:.08,fee:.004,pnl:-.02,time:100,reason:'perda de tendência'}]},true);
+assert.match(element('events').innerHTML,/Venda fictícia/);
+assert.match(element('events').innerHTML,/perda de tendência/);
+assert.match(element('live20-health').innerHTML,/STOP acionado/);
+assert.equal(element('legacy-readiness').hidden,true);
+ctx.renderSessionHealth({});
+assert.equal(element('live20-diagnostic').hidden,true);
+assert.equal(element('legacy-health').hidden,false);
+console.log('OK: current-session activity and diagnostics, with legacy fallback.');
