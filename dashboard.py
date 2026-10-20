@@ -146,7 +146,7 @@ def snapshot(root):
         validation_exists=bool(validation), validation_current=current, validation_passed=validation.get('portfolio_passed', False),
         observation_exists=bool(observed), observation_current=observation_current,
         activity_recent=recent, performance_exists=bool(state.get('performance')))
-    return {'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
+    return {'market_stream':read(root,'reports/local/market-stream.json'),'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
             'halted': state.get('halted', False),
             'activity': {'recent': 0 <= age <= 180 and heartbeat.get('phase') != 'stopped',
                          'time': heartbeat.get('time'), 'phase': heartbeat.get('phase'), 'command': heartbeat.get('command')},
