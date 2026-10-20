@@ -11,7 +11,7 @@ class AuditTests(unittest.TestCase):
         orders=[dict(time=1,symbol='DOGEUSDT',side='BUY',quantity=10,price=1,fee=.1,pnl=None),
                 dict(time=2,symbol='DOGEUSDT',side='SELL',quantity=5,price=1.2,fee=.1,pnl=.85)]
         return dict(initial=20,cash=15.8,equity=20.8,pnl=.8,realized=.85,unrealized=-.05,
-                    position=dict(symbol='DOGEUSDT',units=5,cost=5.05),orders=orders,updated=202,
+                    position=dict(symbol='DOGEUSDT',units=5,cost=5.05),orders=orders,updated=203,
                     curve=[dict(time=1,equity=20),dict(time=202,equity=19),dict(time=203,equity=20.8)])
     def test_partial_sale_reconciles_cost_and_fees(self):
         r=build(self.state(),300)
@@ -44,3 +44,31 @@ class AuditTests(unittest.TestCase):
             r=register(root)
             self.assertEqual(len(r['studies']),2);self.assertEqual(len(r['variants']),1)
             self.assertFalse(r['approved'])
+
+    def test_closed_wallet_equity_must_equal_cash(self):
+        s=dict(initial=20,cash=20,equity=25,pnl=5,realized=0,unrealized=5,position=None,orders=[],curve=[],updated=100)
+        self.assertFalse(build(s,200)['reconciled'])
+
+    def test_open_position_cannot_have_negative_marked_value(self):
+        s=self.state();s.update(equity=10,pnl=-10,unrealized=-10.85)
+        self.assertFalse(build(s,300)['reconciled'])
+
+    def test_malformed_position_is_reported_without_crashing(self):
+        for position in ([], 'invalid', {'symbol': 'DOGEUSDT', 'units': True, 'cost': 5.05}):
+            with self.subTest(position=position):
+                s=self.state();s['position']=position
+                self.assertFalse(build(s,300)['reconciled'])
+
+    def test_future_order_cannot_reconcile(self):
+        s=self.state();s['orders'][-1]['time']=400
+        self.assertFalse(build(s,300)['reconciled'])
+
+    def test_future_measurement_and_curve_cannot_reconcile(self):
+        s=self.state();s['updated']=400
+        self.assertFalse(build(s,300)['reconciled'])
+        s=self.state();s['curve'][-1]['time']=204
+        self.assertFalse(build(s,300)['reconciled'])
+
+    def test_nonfinite_arithmetic_is_not_a_reconciled_ledger(self):
+        s=self.state();s['orders'][0].update(quantity=1e308,price=1e308)
+        self.assertFalse(build(s,300)['reconciled'])

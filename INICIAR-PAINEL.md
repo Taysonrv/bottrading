@@ -47,3 +47,10 @@ Ao terminar o prazo da sessão, o iniciador reconhece a saída normal do simulad
 Após encerrar os processos, salva um resumo único em `reports/local/session-summaries/`, em JSON e Markdown. O motivo distingue prazo concluído (`deadline`), STOP (`stop`), interrupção (`interrupted`) e falha (`failure`). Saídas inesperadas continuam sendo tratadas como erro.
 
 O resumo usa a última medição salva, sem obter um preço de liquidação e sem reiniciar saldo ou histórico. Uma interrupção não significa que o teste foi concluído. Se a auditoria falhar, o iniciador avisa; use `python auditar.py` para revisar o estado preservado. Uma sessão cujo prazo terminou exige revisão antes de outra sessão.
+
+
+## Integridade dos resultados
+
+A auditoria também rejeita ordens e medições com horários futuros, curva posterior à última medição, posição com formato inválido e caixa reconstruído negativo. Sem posição aberta, o patrimônio deve corresponder ao caixa; uma posição não pode ter valor marcado negativo.
+
+Essas verificações conferem o histórico salvo sem alterar operações ou saldo. Uma reconciliação positiva não confirma o preço de mercado da posição, não prova vantagem da estratégia e não libera negociação real. Divergências aparecem em `issues` no JSON e nas limitações do relatório Markdown.

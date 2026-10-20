@@ -16,6 +16,9 @@ def build(state,now=None):
     orders=state.get('orders',[]);curve=state.get('curve',[])
     if not isinstance(orders,list) or not isinstance(curve,list):raise ValueError('Formato inválido')
     cash=state['initial'];inventory={};realized=fees=0.;issues=[]
+    measurement=state.get('updated')
+    valid_measurement=finite(measurement) and measurement>=0 and measurement<=now
+    if not valid_measurement:issues.append('Horário da medição ausente, inválido ou futuro.')
     if len(orders)>=500:issues.append('Histórico atingiu o limite de 500 ordens; pode estar truncado.')
     sells=[];previous=-math.inf
     for o in orders:
@@ -23,8 +26,12 @@ def build(state,now=None):
             issues.append('Ordem inválida.');continue
         if not all(finite(o.get(k)) for k in ('quantity','price','fee','time')) or o['quantity']<=0 or o['price']<=0 or o['fee']<0:
             issues.append('Valores de ordem inválidos.');continue
+        if o['time']<0 or o['time']>now or (valid_measurement and o['time']>measurement):
+            issues.append('Ordem posterior à medição ou com horário inválido/futuro.')
         if o['time']<previous:issues.append('Ordens fora da sequência temporal.')
         previous=o['time'];q=o['quantity'];gross=q*o['price'];fees+=o['fee']
+        if not finite(gross) or not finite(gross+o['fee']):
+            issues.append('Valor financeiro da ordem excede limite numérico.');continue
         p=inventory.setdefault(o['symbol'],dict(units=0.,cost=0.))
         if o['side']=='BUY':
             cash-=gross+o['fee'];p['units']+=q;p['cost']+=gross+o['fee']
@@ -38,6 +45,9 @@ def build(state,now=None):
     for k,value in [('cash',cash),('realized',realized)]:
         if not finite(state.get(k)) or not math.isclose(state[k],value,abs_tol=1e-7):issues.append('Reconciliação divergente: '+k)
     saved=state.get('position')
+    if saved is not None and (not isinstance(saved,dict) or not isinstance(saved.get('symbol'),str) or not all(finite(saved.get(k)) and saved[k]>0 for k in ('units','cost'))):
+        issues.append('Formato ou valores da posição aberta inválidos.')
+        saved=None
     for symbol,p in inventory.items():
         if p['units']<=1e-9:continue
         if not saved or saved.get('symbol')!=symbol or not all(finite(saved.get(k)) and math.isclose(saved[k],p[k],abs_tol=1e-7) for k in ('units','cost')):
@@ -47,8 +57,17 @@ def build(state,now=None):
     equity=state.get('equity');pnl=state.get('pnl');unrealized=state.get('unrealized')
     if not all(finite(x) for x in (equity,pnl,unrealized)) or not math.isclose(equity-state['initial'],pnl,abs_tol=1e-7) or not math.isclose(realized+unrealized,pnl,abs_tol=1e-7):
         issues.append('Patrimônio e decomposição do resultado não conferem.')
+    if not finite(cash) or cash < -1e-7:
+        issues.append('Caixa reconstruído negativo ou inválido para Spot sem alavancagem.')
+    if finite(equity) and finite(state.get('cash')):
+        if saved is None and not math.isclose(equity,state['cash'],abs_tol=1e-7):
+            issues.append('Sem posição aberta, patrimônio deve corresponder ao caixa.')
+        elif saved is not None and equity < state['cash']-1e-7:
+            issues.append('Valor marcado da posição não pode ser negativo.')
     points=[p for p in curve if isinstance(p,dict) and finite(p.get('time')) and finite(p.get('equity')) and p['equity']>0]
     if len(points)!=len(curve):issues.append('Medições inválidas na curva.')
+    if any(p['time']<0 or p['time']>now or (valid_measurement and p['time']>measurement) for p in points):
+        issues.append('Curva contém horário inválido, futuro ou posterior à medição.')
     if any(b['time']<=a['time'] for a,b in zip(points,points[1:])):issues.append('Curva fora de ordem temporal.')
     gaps=[b['time']-a['time'] for a,b in zip(points,points[1:]) if b['time']-a['time']>180]
     peak=points[0]['equity'] if points else None;dd=0.
@@ -70,6 +89,7 @@ def build(state,now=None):
       limits=['Drawdown e lacunas cobrem apenas as medições retidas; a curva pode estar truncada a 1.500 pontos.',
               'Taxas registradas não incluem slippage separadamente: ele já está embutido nos preços fictícios.',
               'Fator de lucro indefinido sem vendas negativas; não é infinito nem prova de vantagem.',
+              'Sem cotações independentes para confirmar o preço marcado da posição aberta; somente consistência contábil.',
               'Sem Sharpe/CAGR anualizados para esta sessão curta e irregular. Reconciliação não valida rentabilidade.'])
 
 
