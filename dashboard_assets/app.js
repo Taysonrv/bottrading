@@ -132,6 +132,10 @@ function renderLive20(s){
  labChart('live20-chart',s.curve||[],'equity');
  const p=s.position;
  $('live20-position').innerHTML=p?table(['Ativo','Quantidade','Custo USDT','Não realizado USDT'],[[escape(p.symbol),number(p.units,10),number(p.cost,6),number(s.unrealized,6)]]):empty('Sem posição fictícia aberta.');
+ const validPosition=p&&Number.isFinite(p.cost)&&p.cost>0&&Number.isFinite(p.units)&&p.units>0;
+ $('live20-exits').innerHTML=validPosition?table(['Par','Bid para ganho líquido de 1%','Bid para perda líquida de 2%','Outra saída'],[[escape(p.symbol),number(p.cost*1.01/(p.units*.999*.999),8),number(p.cost*.98/(p.units*.999*.999),8),'Último fechamento horário abaixo da média de 20 candles']]):empty('Sem posição aberta para calcular saída.');
+ const orders=s.orders||[],sales=orders.filter(o=>o.side==='SELL'),buys=orders.filter(o=>o.side==='BUY'),fees=orders.reduce((total,o)=>total+(Number.isFinite(o.fee)?o.fee:0),0);
+ $('live20-summary').innerHTML=table(['Compras registradas','Vendas registradas','Vendas positivas','Vendas negativas','Taxas registradas USDT','Não realizado USDT'],[[buys.length,sales.length,sales.filter(o=>o.pnl>0).length,sales.filter(o=>o.pnl<0).length,number(fees,6),number(s.unrealized,6)]]);
  $('live20-orders').innerHTML=s.orders?.length?table(['Horário','Par','Ordem fictícia','Quantidade','Preço USDT','Taxa USDT','Realizado USDT','Motivo'],s.orders.slice(-100).reverse().map(o=>[escape(date(o.time)),escape(o.symbol),o.side==='BUY'?'Compra':'Venda',number(o.quantity,10),number(o.price,8),number(o.fee,6),number(o.pnl,6),escape(o.reason)])):empty('Nenhuma ordem fictícia até agora.','Sinais e mínimos são respeitados; não criamos negócios para preencher a tabela.');
  if(!$('live20').hidden){$('updated').textContent=$('live20-status').textContent;$('connection').textContent=fresh?'● Simulação 20 USDT · dados recentes':'○ Simulação 20 USDT · confira atualização';$('notice').textContent='Somente saldo fictício. Estratégia experimental; nenhuma ordem real.';$('process-help').hidden=true;}
 }
