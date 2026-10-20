@@ -12,7 +12,7 @@ O pacote novo não é iniciado por `iniciar.py` e não altera a identidade ou os
 spot_engine/
   __init__.py
   config.py       # entregue: parâmetros imutáveis e validação local
-  data.py         # próximo: ccxt REST, candles fechados e paginação; WebSocket separado
+  data.py         # entregue: ccxt REST e observação WebSocket de candles fechados
   strategy.py     # classe de sinais causal, sem acesso à conta
   risk.py         # estado persistente, limites e dimensionamento com custos
   execution.py    # adaptadores paper/testnet; reconciliação e IDs idempotentes
@@ -22,7 +22,7 @@ spot_engine/
  tests/test_spot_config.py
 ```
 
-Arquivos listados como próximos ainda não estão implementados. ccxt, pandas e numpy serão dependências do módulo de dados/estratégia, com versões e compatibilidade verificadas nessa entrega. Não instalamos bibliotecas sem necessidade nesta etapa.
+Módulos sem a marca entregue ainda estão pendentes. O coletor usa ccxt e websockets; pandas e numpy ficam para a estratégia e o backtest. O ambiente isolado de integração desta entrega usa Python 3.12, ccxt 4.5.89 e websockets 17.3. Instalação no Python 3.15 do operador ainda não foi verificada; os testes sem dependências também rodam no Python 3.15.
 
 ## Módulo 1: configuração
 
@@ -60,3 +60,37 @@ Com 20 USDT, 1% equivale a 0,20 USDT de risco teórico. O mínimo de ordem pode 
 
 - Filtros: https://github.com/binance/binance-spot-api-docs/blob/master/filters.md
 - Spot Testnet e resets: https://github.com/binance/binance-spot-api-docs/blob/master/testnet/general-info.md
+
+
+## Módulo 2: dados públicos — entregue
+
+Código completo em `spot_engine/data.py`; dependências fixadas em `requirements-spot-data.txt`. Sem chaves: o adaptador ccxt expõe somente horário e OHLCV públicos, com Spot, rate limiter e timeout de 15 segundos. Não é iniciado pelo painel/iniciador atual.
+
+- Janela UTC `[início,fim)`, alinhada; nenhum candle com fechamento posterior ao horário público da Binance é aceito no histórico.
+- Paginação explícita por `since`, inclusive quando uma página tem menos de 1.000 itens. Sobreposições iguais são deduplicadas; divergências, falta de progresso, OHLC inválido e intervalos ausentes abortam.
+- Até três tentativas por consulta em falhas transitórias de rede, com esperas de 1 e 2 segundos. Rate limit/ban interrompe; não executa ciclo agressivo de reconexão REST.
+- Arquivos únicos CSV e manifesto JSON em `reports/local/spot-data/`, ignorados pelo Git. SHA-256 verifica integridade dos bytes do CSV; não é assinatura da Binance nem validação financeira. Falha durante gravação pode deixar CSV sem manifesto: não use esse arquivo como conjunto aprovado.
+- WebSocket público usa `k.x == true`, par/timeframe corretos, evento não futuro e defasagem máxima de 120 segundos. Exige relógio local sincronizado. Observação limitada a 1–3.600 segundos, com até três reconexões. Duplicata idêntica é ignorada; conflito/retrocesso/lacuna interrompem. `ClosedSequence(previous=último_candle)` permite verificar continuidade em relação ao histórico REST.
+- A recuperação automática de lacunas via REST e a persistência contínua do streaming serão ligadas na orquestração futura; não há recuperação silenciosa ou geração de sinais nesta entrega. Não confunda este teste limitado com serviço 24/7.
+
+### Como instalar e testar
+
+Use ambiente virtual separado para não alterar dependências do bot existente. Python 3.12 foi verificado com as dependências; Python 3.11+ é o alvo, mas cada combinação precisa de teste.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-spot-data.txt
+.\.venv\Scripts\python.exe -m unittest tests.test_spot_config tests.test_spot_data -v
+.\.venv\Scripts\python.exe -m spot_engine.data --years 2
+.\.venv\Scripts\python.exe -m spot_engine.data --stream-seconds 30
+```
+
+O download usa `TRADING_SYMBOL`/`TRADING_TIMEFRAME` da configuração. Não altera carteira, relatórios de sessão, STOP ou identidade da estratégia. Zero candles fechados em trinta segundos é esperado em muitos intervalos de 15m/1h/4h. Não diminuímos o timeframe para forçar eventos.
+
+### Evidência de integração em 20/10/2026
+
+Coleta pública real BTC/USDT 1h: 17.520 candles, 18 páginas, dois anos completos, sem lacunas, manifesto local com hash. Observação WebSocket de dez segundos concluída sem candle fechado. Isso testa transporte e integridade; nenhum sinal, lucro ou backtest foi calculado. Os dados continuam privados e não são enviados ao repositório.
+
+A série OHLCV não informa ordem intrabar entre máxima e mínima, fila de execução, spread ou momento exato em que um candle histórico ficou disponível. O futuro backtest precisará tratar essas limitações e executar sinais em instante posterior. Não usar valores da vela em formação.
+
+Fontes: https://docs.ccxt.com/docs/manual e https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md (consultadas em 20/10/2026).
