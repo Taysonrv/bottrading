@@ -1,7 +1,7 @@
 """Fixed, experimental Spot rules evaluated only on closed candles."""
 import statistics
 
-NAMES=('ma_cross','breakout_volume','pullback_fixed','pullback_rsi','pullback_atr','mean_reversion','vwap_filter','momentum_volume','macd_cross')
+NAMES=('ma_cross','breakout_volume','pullback_fixed','pullback_rsi','pullback_atr','mean_reversion','vwap_filter','momentum_volume','macd_cross','ema_9_20','ema_ribbon','bollinger_squeeze','stochastic_pullback')
 
 
 def ema(prices,period):
@@ -35,6 +35,17 @@ def vwap(rows):
 def macd(prices):
     values=[ema(prices[:i],12)-ema(prices[:i],26) for i in range(26,len(prices)+1)]
     return values[-1]-ema(values,9)
+
+
+def stochastic(rows,period=14):
+    if len(rows)<period:raise ValueError('Aquecimento insuficiente')
+    recent=rows[-period:];low=min(r['low'] for r in recent);high=max(r['high'] for r in recent)
+    return 50. if high==low else 100*(recent[-1]['close']-low)/(high-low)
+
+
+def bollinger(prices):
+    recent=prices[-20:];mean=statistics.mean(recent);sigma=statistics.pstdev(recent)
+    return mean,mean+2*sigma,4*sigma/mean
 
 
 def decision(name,rows,position,fee=.001,slip=.001):
@@ -75,5 +86,24 @@ def decision(name,rows,position,fee=.001,slip=.001):
     elif name=='macd_cross':
         buy=macd(prices[:-1])<=0<macd(prices) and trend
         sell=macd(prices[:-1])>=0>macd(prices)
+    elif name=='ema_9_20':
+        now=ema(prices,9)-ema(prices,20);before=ema(prices[:-1],9)-ema(prices[:-1],20)
+        buy=before<=0<now and trend and rsi(prices)>50;sell=now<0
+    elif name=='ema_ribbon':
+        e5,e8,e13=[ema(prices,n) for n in (5,8,13)]
+        before5=ema(prices[:-1],5);before_max=max(ema(prices[:-1],8),ema(prices[:-1],13))
+        buy=trend and before5<=before_max and e5>e8>e13 and last>e5
+        sell=e5<e8 and e5<e13
+    elif name=='bollinger_squeeze':
+        mean,upper,width=bollinger(prices);_,_,previous_width=bollinger(prices[:-1])
+        tight=all(bollinger(prices[:end])[2]<=.02 for end in range(len(prices)-5,len(prices)))
+        buy=trend and tight and last>upper and width>previous_width*1.1 and average>0 and volume>=1.5*average
+        sell=last<mean
+    elif name=='stochastic_pullback':
+        k=stochastic(rows);before=stochastic(rows[:-1])
+        d=statistics.mean(stochastic(rows[:end]) for end in range(len(rows)-2,len(rows)+1))
+        previous_d=statistics.mean(stochastic(rows[:end]) for end in range(len(rows)-3,len(rows)))
+        buy=trend and before<20 and before<=previous_d and k>d
+        sell=k>80 or k<d
     if bought and name!='pullback_atr':sell=sell or gain<=-.02 or gain>=.01
     return dict(buy=bool(buy and not bought),sell=bool(sell and bought),distance=distance)

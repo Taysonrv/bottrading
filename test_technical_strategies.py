@@ -1,5 +1,5 @@
 import unittest
-from technical_strategies import atr,rsi,vwap,decision,NAMES
+from technical_strategies import atr,rsi,vwap,decision,NAMES,stochastic,bollinger
 
 
 class TechnicalTests(unittest.TestCase):
@@ -22,3 +22,9 @@ class TechnicalTests(unittest.TestCase):
     def test_atr_stop_requires_position_and_no_averaging(self):
         r=decision('pullback_atr',self.rows(),dict(units=.05,cost=5,atr_stop=101,atr_target=110))
         self.assertTrue(r['sell']);self.assertFalse(r['buy'])
+    def test_stochastic_flat_and_bounds(self):
+        rows=self.rows();self.assertEqual(stochastic(rows),50)
+        rows[-1]['close']=101;self.assertEqual(stochastic(rows),100)
+        rows[-1]['close']=99;self.assertEqual(stochastic(rows),0)
+    def test_bollinger_flat_zero_width(self):
+        self.assertEqual(bollinger([100]*20),(100,100,0))
