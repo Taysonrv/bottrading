@@ -66,3 +66,10 @@ Para gerar uma medição de patrimônio, encerre o observador com Ctrl+C, execut
 
 A aba Estratégias também mostra o relatório das seis hipóteses diárias em `reports/2026-10-18-daily-results.json`. É um resultado salvo, separado da validação ativa. Para repetir a pesquisa use `python daily_research.py`; o painel lê os resultados na próxima atualização. Reinicie o painel e atualize a página após instalar mudanças do GitHub.
 
+
+
+## EMA/ATR ao vivo
+
+A aba **EMA/ATR ao vivo** acompanha a sessão `ema20`, separada da sessão anterior. Lê `reports/local/spot-runs/ema20/status.json` e o ledger SQLite em modo somente leitura. Exibe patrimônio, realizado, taxas, caixa livre/reservado, distribuição, posição, stop/alvo, últimas 100 ordens e últimos 100 preenchimentos. Zero operações é mostrado como zero, sem inventar negócios. Não há gráfico histórico de patrimônio desta sessão porque ainda não existe série histórica persistida de marcações.
+
+Atualização automática a cada 10 segundos. Relatório com mais de 60 segundos é antigo; ERROR e STOPPED não aparecem como coleta saudável. Se o ledger mudou antes do status, o patrimônio fica temporariamente indisponível até a próxima atualização. STOP do painel é global e afeta também a outra simulação; não liquida posições. Esta aba não inicia processos nem altera a estratégia.

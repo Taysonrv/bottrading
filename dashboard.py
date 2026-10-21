@@ -18,6 +18,7 @@ import market_view
 import metamask_view
 import session_audit
 import shadow_view
+import ema_view
 
 ASSETS = Path(__file__).resolve().parent / 'dashboard_assets'
 
@@ -149,7 +150,7 @@ def snapshot(root):
         validation_exists=bool(validation), validation_current=current, validation_passed=validation.get('portfolio_passed', False),
         observation_exists=bool(observed), observation_current=observation_current,
         activity_recent=recent, performance_exists=bool(state.get('performance')))
-    return {'ai_shadow':shadow_view.load(root),'session_audit':session_audit.build(read(root,'reports/local/live-small-paper.json')),'research_registry':read(root,'reports/local/research-registry.json'),'coingecko':read(root,'reports/local/coingecko-context.json'),'market_stream':read(root,'reports/local/market-stream.json'),'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
+    return {'ema':ema_view.load(root),'ai_shadow':shadow_view.load(root),'session_audit':session_audit.build(read(root,'reports/local/live-small-paper.json')),'research_registry':read(root,'reports/local/research-registry.json'),'coingecko':read(root,'reports/local/coingecko-context.json'),'market_stream':read(root,'reports/local/market-stream.json'),'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
             'halted': state.get('halted', False),
             'activity': {'recent': 0 <= age <= 180 and heartbeat.get('phase') != 'stopped',
                          'time': heartbeat.get('time'), 'phase': heartbeat.get('phase'), 'command': heartbeat.get('command')},

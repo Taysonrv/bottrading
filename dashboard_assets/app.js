@@ -119,10 +119,11 @@ function render(data){renderShadow(data.ai_shadow||{});renderAudit(data.session_
  renderOverview20(data.live_small||{},data.stop);
  renderSessionHealth(data.live_small||{},data.stop);
  if(typeof metamaskChrome==='function') metamaskChrome();
+ renderEma(data.ema||{});
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
-for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));$('page-name').textContent=button.textContent.trim();$('heading').textContent={shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={ema:'EMA/ATR · simulação em andamento.',shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
 
@@ -236,3 +237,30 @@ function renderShadow(s){
  const f=s.features||{};
  $('shadow-features').innerHTML=table(['Par fictício','Mid fictício','Spread fictício','Imbalance L1','Volatilidade não anualizada','DD fictício','Perda diária fictícia'],[[escape(s.symbol),number(f.mid,6),percent(f.spread),number(f.imbalance_l1,6),number(f.volatility,10),percent(f.drawdown),percent(f.daily_loss)]]);
 }
+
+
+function renderEma(s){
+ const valid=!!s.available,active=!$('ema').hidden;
+ const sides={BUY:'Compra',SELL:'Venda'},states={NEW:'Nova',PARTIAL:'Parcial',FILLED:'Preenchida',CANCELED:'Cancelada',REJECTED:'Rejeitada'};
+ if(!valid){
+  $('ema-status').textContent=s.status==='invalid'?'Relatório EMA/ATR indisponível ou inconsistente; confira o processo.':'Sessão EMA/ATR ainda não encontrada nesta pasta.';
+  for(const id of ['ema-cards','ema-allocation','ema-fills-pie','ema-position','ema-orders','ema-fills']) $(id).innerHTML=empty('Sem dados disponíveis.');
+  $('ema-signal').textContent='Aguardando relatório da sessão.';
+ }else{
+  const health=s.stop?'STOP acionado':s.phase==='STOPPED'?'Sessão encerrada':s.phase==='ERROR'?'Erro de coleta':s.fresh?'Processo atualizando':'Sem atualização recente';
+  $('ema-status').textContent=`${health} · última medição ${date(s.updated)} · término ${date(s.end)}. ${s.in_transition?'Carteira em atualização; patrimônio temporariamente indisponível.':''}`;
+  const cards=[['Patrimônio fictício',number(s.equity,6)+' USDT','Capital inicial: '+number(s.capital)+' USDT','cyan'],['Resultado líquido',number(s.pnl,6)+' USDT','Realizado: '+number(s.realized,6)+' USDT','violet'],['Caixa reservado',number(s.reserved,6)+' USDT','Disponível: '+number(s.cash-s.reserved,6)+' USDT','green'],['Preenchimentos',number(s.buy_fills+s.sell_fills,0),'Taxas: '+number(s.fees,6)+' USDT','pink']];
+  $('ema-cards').innerHTML=cards.map(([title,value,note,color])=>`<article class="metric accent-${color}"><p>${escape(title)}<span>↗</span></p><h2>${escape(value)}</h2><small>${escape(note)}</small></article>`).join('');
+  donut('ema-allocation',[{name:'Caixa disponível',value:s.cash-s.reserved,color:'#22d3ee'},{name:'Caixa reservado',value:s.reserved,color:'#a78bfa'},{name:'Posição marcada',value:Number.isFinite(s.equity)?Math.max(0,s.equity-s.cash):null,color:'#34e8ad'}],'Carteira fictícia');
+  if(!s.buy_fills&&!s.sell_fills)$('ema-fills-pie').innerHTML=empty('Nenhum preenchimento ainda.','Zero compras e zero vendas nesta sessão.');else donut('ema-fills-pie',[{name:'Compras preenchidas',value:s.buy_fills,color:'#34e8ad'},{name:'Vendas preenchidas',value:s.sell_fills,color:'#ff7ca8'}],'Ordens registradas');
+  $('ema-position').innerHTML=s.units>0?table(['Par','Quantidade','Custo USDT','Stop bid','Alvo bid'],[[escape(s.symbol),number(s.units,8),number(s.cost,6),number(s.protection?.stop,2),number(s.protection?.take,2)]]):empty('Sem posição aberta.','O bot permanece em caixa enquanto aguarda um sinal válido.');
+  const signals={'WARMUP_REPLAYED':'Indicadores aquecidos. Aguardando novo candle fechado e cruzamento válido.','HOLD:NO_CROSS':'Aguardando cruzamento das médias: nenhuma entrada neste candle.','HOLD:ATR_FILTER':'Entrada bloqueada pelo filtro de volatilidade ATR.','HOLD:TREND_FILTER':'Entrada bloqueada pelo filtro de tendência EMA 200.','ENTER_LONG:EMA_CROSS_UP':'Cruzamento de compra identificado; confira a solicitação e os filtros.','EXIT_LONG:EMA_CROSS_DOWN':'Cruzamento de saída identificado; confira a posição e a ordem.'};
+  const signal=signals[s.last_signal]||s.last_signal;
+  $('ema-signal').textContent=`${signal} · ${s.reason==='NO_FILL'?'Sem preenchimento neste ciclo':s.reason}. Preços recebidos em ${date(s.price_received)}.`;
+  $('ema-orders').innerHTML=s.orders?.length?table(['Horário','ID','Lado','Estado','Quantidade','Preenchido','Preço ref.','Motivo'],s.orders.slice().reverse().map(o=>[escape(date(o.time)),escape(o.id),escape(sides[o.side]),escape(states[o.status]),number(o.quantity,8),number(o.filled,8),number(o.price,2),escape(o.reason)])):empty('Nenhuma ordem solicitada ainda.','A sessão aguarda novos sinais; não importamos ordens da simulação anterior.');
+  $('ema-fills').innerHTML=s.fills?.length?table(['Horário','Lado','Quantidade','Preço USDT','Taxa USDT'],s.fills.slice().reverse().map(f=>[escape(date(f.time)),escape(sides[f.side]),number(f.quantity,8),number(f.price,2),number(f.fee,6)])):empty('Nenhum preenchimento até agora.');
+ }
+ if(active){$('process-help').hidden=true;$('updated').textContent=valid?'EMA/ATR · medição '+date(s.updated):'EMA/ATR · relatório indisponível';$('connection').textContent=valid&&s.fresh&&!s.stop?'● EMA/ATR · dados recentes':'○ EMA/ATR · confira estado';$('notice').textContent='Sessão EMA/ATR com 20 USDT fictícios. Nenhuma ordem real. O botão STOP é global e não liquida posições.';$('notice').hidden=false;}
+}
+
+if(typeof location!=='undefined'&&location.hash==='#ema')document.querySelector('[data-view="ema"]').click();

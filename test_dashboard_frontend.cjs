@@ -48,3 +48,16 @@ assert.match(element('shadow-summary').innerHTML,/Fixture aceita/);
 assert.match(element('shadow-status').textContent,/artificial/);
 assert.match(element('shadow-summary').innerHTML,/Não realizada/);
 console.log('OK: offline V2 remains explicitly artificial.');
+
+element('ema').hidden=false;
+ctx.renderEma({available:true,phase:'RUNNING',fresh:true,updated:Date.now()/1000,end:Date.now()/1000+3600,capital:20,equity:20,pnl:0,realized:0,reserved:0,cash:20,units:0,fees:0,buy_fills:0,sell_fills:0,last_signal:'WARMUP_REPLAYED',reason:'NO_FILL',orders:[],fills:[]});
+assert.match(element('ema-cards').innerHTML,/20,000000/);
+assert.match(element('ema-orders').innerHTML,/Nenhuma ordem solicitada/);
+assert.match(element('ema-signal').textContent,/Indicadores aquecidos/);
+assert.match(element('ema-fills-pie').innerHTML,/Zero compras/);
+ctx.renderEma({available:true,phase:'STOPPED',fresh:false,stop:true,cash:20,reserved:0,units:0,orders:[],fills:[],buy_fills:0,sell_fills:0});
+assert.match(element('ema-status').textContent,/STOP acionado/);
+assert.doesNotMatch(element('connection').textContent,/dados recentes/);
+ctx.renderEma({available:false,status:'invalid'});
+assert.match(element('ema-cards').innerHTML,/Sem dados disponíveis/);
+console.log('OK: EMA live panel, real zeros, empty orders, STOP and invalid state.');
