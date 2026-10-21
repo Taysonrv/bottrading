@@ -1,7 +1,7 @@
 """Single supervised entry point for existing PAPER components; never live.
 
 No state reset, source migration, automatic STOP removal or deadline extension.
-The six-pair scanner remains observation-only; only BTC/1h can paper-trade.
+EMA and shared-wallet PAPER modes have separate persisted wallets.
 """
 import argparse
 from contextlib import ExitStack,contextmanager
@@ -36,7 +36,7 @@ def probe_existing_lock(path):
             finally:fcntl.flock(handle.fileno(),fcntl.LOCK_UN)
 
 
-def preflight(root,port,now=None,engine='ema'):
+def preflight(root,port,now=None,engine='ema',execution_only=False):
     if type(port) is not int or not 1024<=port<=65535:raise ValueError('Porta inválida.')
     now=time.time() if now is None else now
     for relative in ('spot_engine/main.py','spot_engine/config.py'):
@@ -49,10 +49,23 @@ def preflight(root,port,now=None,engine='ema'):
     if plan and (type(plan.get('end_ms')) is not int or plan['end_ms']<=now*1000):raise ValueError('Prazo da sessão encerrado. Saldo e prazo não reiniciados.')
     with probe_existing_lock(session/'runner.lock'):pass
     with probe_existing_lock(root/'reports/local/multipair.lock'):pass
-    with socket.socket() as sock:
-        try:sock.bind(('127.0.0.1',port))
-        except OSError:raise ValueError('Porta ocupada. Encerre o painel antigo ou selecione outra porta.') from None
+    if not execution_only:
+        with socket.socket() as sock:
+            try:sock.bind(('127.0.0.1',port))
+            except OSError:raise ValueError('Porta ocupada. Use --execution-only se o painel já estiver aberto, ou outra porta.') from None
     return session
+
+
+def lifecycle(children,session):
+    """A dead web UI must not terminate synthetic protection or vice versa."""
+    codes={name:child.poll() for name,child in children}
+    if codes.get('execution') is not None:
+        last=read(session/'status.json')
+        reason=last.get('reason','EXECUTION_EXIT') if codes['execution']==0 else 'EXECUTION_FAILURE'
+        return 'IDLE',reason
+    if any(code is not None for name,code in codes.items() if name!='execution'):
+        return 'DEGRADED','COMPONENT_FAILURE'
+    return 'RUNNING','ACTIVE'
 
 
 def commands(root,port,engine='ema'):
@@ -70,8 +83,9 @@ def main():
     parser.add_argument('--data-dir',type=Path,default=ROOT)
     parser.add_argument('--port',type=int,default=8768)
     parser.add_argument('--start',action='store_true',help='Inicia os componentes; sem esta opção apenas verifica.')
+    parser.add_argument('--execution-only',action='store_true',help='Usa painel já iniciado separadamente; não ocupa sua porta nem controla seu processo.')
     args=parser.parse_args();root=args.data_dir.resolve()
-    try:session=preflight(root,args.port,engine=args.engine)
+    try:session=preflight(root,args.port,engine=args.engine,execution_only=args.execution_only)
     except (OSError,ValueError) as error:raise SystemExit('Não iniciado: '+str(error)) from None
     if not args.start:
         print(json.dumps(build(root),ensure_ascii=False,indent=2));print('Pré-verificação concluída. Para iniciar acrescente --start.');return
@@ -86,22 +100,23 @@ def main():
     with single_runner(folder/'system.lock'),ExitStack() as stack:
         try:
             for name,command,cwd in commands(root,args.port,args.engine):
+                if args.execution_only and name=='dashboard':continue
                 log=stack.enter_context((folder/('system-'+name+'.log')).open('a',encoding='utf-8'))
                 flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
                 children.append((name,subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=flags)))
             print(f'Terminal: http://127.0.0.1:{args.port}/#terminal',flush=True)
-            print('Código de acesso: '+env['SPOTLAB_ACCESS_CODE'],flush=True)
+            print('Painel externo: use o código do painel já aberto.' if args.execution_only else 'Código de acesso: '+env['SPOTLAB_ACCESS_CODE'],flush=True)
             print('PAPER: '+('carteira compartilhada de 20 USDT, seis pares15m; experimento separado da EMA.' if args.engine=='portfolio' else 'BTC/1h executa sinais; seis pares15m apenas observados.')+' Não feche este terminal.',flush=True)
             print('Ctrl+C aciona STOP local da sessão, preserva posição e encerra os componentes próprios.',flush=True)
             while True:
-                for name,child in children:
-                    code=child.poll()
-                    if code is not None:
-                        last=read(session/'status.json')
-                        reason=last.get('reason','FAILURE') if name=='execution' and code==0 and last.get('phase')=='STOPPED' else 'COMPONENT_FAILURE'
-                        return
-                reason='ACTIVE';status('RUNNING');time.sleep(1)
+                phase,reason=lifecycle(children,session)
+                status(phase)
+                if all(child.poll() is not None for _,child in children):return
+                time.sleep(1)
         except KeyboardInterrupt:reason='INTERRUPTED'
+        except Exception:
+            reason='SUPERVISOR_FAILURE'
+            raise
         finally:
             engine=next((p for name,p in children if name=='execution'),None)
             if engine is not None and engine.poll() is None:

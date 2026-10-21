@@ -35,3 +35,15 @@ Dados em reports/local/portfolio: paper.sqlite, plan.json, status.json e radar.j
 ## Validação
 
 Testes cobrem reserva concorrente entre moedas, troca de par depois da venda, replay idempotente, reinício, custos, liquidez insuficiente, expiração, STOP, gap e trava diária, integridade do ledger, seleção causal e leitura do painel. Esses testes validam software, não vantagem financeira. Telegram do motor multipar, continuidade ilimitada, testnet e execução real seguem pendentes.
+
+## Disponibilidade do painel
+
+A parada normal do motor deixa o painel próprio aberto para consulta (estado IDLE). Falha do painel marca o supervisor DEGRADED, mas não encerra a proteção sintética do motor. Não há reinício automático ilimitado de componentes.
+
+Se o painel já estiver aberto separadamente, retome somente o motor com:
+
+```powershell
+.\.venv-spot\Scripts\python.exe operar.py --engine portfolio --execution-only --start
+```
+
+Esse modo não cria nem encerra o painel externo e não imprime um novo código de acesso. Continua respeitando STOP, prazo e identidade existentes. Ctrl+C encerra os processos próprios; nunca remove STOP automaticamente.

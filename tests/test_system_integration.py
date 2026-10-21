@@ -3,11 +3,32 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from unittest.mock import Mock
 import operar
 import system_status
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_dashboard_failure_keeps_execution_running(self):
+        engine=Mock();engine.poll.return_value=None
+        panel=Mock();panel.poll.return_value=1
+        self.assertEqual(operar.lifecycle([('execution',engine),('dashboard',panel)],Path('.')),('DEGRADED','COMPONENT_FAILURE'))
+        engine.terminate.assert_not_called()
+
+    def test_execution_end_leaves_dashboard_available(self):
+        engine=Mock();engine.poll.return_value=0
+        panel=Mock();panel.poll.return_value=None
+        with patch('operar.read',return_value=dict(reason='DEADLINE')):
+            self.assertEqual(operar.lifecycle([('execution',engine),('dashboard',panel)],Path('.')),('IDLE','DEADLINE'))
+        panel.terminate.assert_not_called()
+
+    def test_external_dashboard_does_not_bind_port(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=self.root(tmp)
+            with patch('operar.socket.socket') as socket:
+                operar.preflight(root,8768,now=1000,execution_only=True)
+                socket.assert_not_called()
+
     def root(self,temp):
         root=Path(temp);(root/'spot_engine').mkdir()
         for name in ('main.py','config.py'):(root/'spot_engine'/name).touch()
