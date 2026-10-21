@@ -111,3 +111,10 @@ assert.match(chart,/Candles reais registrados e futuros simulados/);
 assert.match(chart,/Previsão/);
 assert.doesNotMatch(chart,/NaN|Infinity/);
 console.log('OK: terminal preserves real zeros, stale state and observed/forecast separation.');
+
+ctx.renderSystemIntegration({controller:{fresh:false},execution:{fresh:false},market:{fresh:false}});
+assert.match(element('term-system').textContent,/sem atividade confirmada/);
+assert.match(element('term-system').textContent,/não implementada/);
+ctx.renderSystemIntegration({controller:{fresh:true},execution:{fresh:true},market:{fresh:true}});
+assert.match(element('term-system').textContent,/iniciador único ativo/);
+console.log('OK: central integration scope and stale controller.');
