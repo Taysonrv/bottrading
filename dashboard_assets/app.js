@@ -125,7 +125,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
-for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={terminal:'Terminal de operações.',ema:'EMA/ATR · simulação em andamento.',shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={terminal:'Terminal de operações.',ema:'Arquivo · experimento EMA/1h.',shadow:'V2 · demonstração offline.',live20:'Arquivo · simulação anterior.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
 
@@ -267,7 +267,8 @@ function renderEma(s,multipair={}){
 }
 
 if(typeof location!=='undefined'&&!location.hash)location.hash='#terminal';
-if(typeof location!=='undefined'&&['terminal','ema','diagnosis','overview','live20','shadow','metamask','activity','research','positions'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
+if(typeof location!=='undefined'&&['overview','activity','positions'].includes(location.hash.slice(1)))location.hash='terminal';
+if(typeof location!=='undefined'&&['terminal','ema','diagnosis','live20','shadow','metamask','research'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
 
 
 function renderEmaDiagnosis(s,multipair={}){
@@ -381,6 +382,7 @@ function renderTerminal(data){
 function renderSystemIntegration(s){
  const c=s.controller||{},e=s.execution||{},m=s.market||{};
  $('term-system').textContent='Integração: '+(c.fresh?'iniciador único ativo':'iniciador único sem atividade confirmada')+' · Motor '+(e.symbol||'BTC/USDT')+'/'+(e.timeframe||'1h')+': '+(e.fresh?'relatório recente':'sem leitura recente')+' · Radar de seis pares: '+(m.fresh?'recente':'sem leitura recente')+'. Carteira multipar experimental possui estado próprio abaixo; motor do iniciador: '+(c.engine||'ema')+'. Kronos e pesquisas não enviam ordens.';
+ $('integration-diagnosis').textContent=$('term-system').textContent;
 }
 
 function renderPortfolio(s){

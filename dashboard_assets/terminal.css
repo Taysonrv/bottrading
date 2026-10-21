@@ -10,3 +10,9 @@
 @media(max-width:900px){.term-main-grid,.term-bottom-grid{grid-template-columns:1fr}.term-log-panel{grid-column:auto}.term-banner h2{font-size:23px}.term-banner{flex-wrap:wrap}.term-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.term-footnote{flex-direction:column}.term-event{grid-template-columns:100px 1fr}.term-event small{grid-column:2}.term-ring{width:130px;height:130px}}
 @media(max-width:480px){.term-pipeline{grid-template-columns:repeat(2,minmax(0,1fr))}.term-panel{padding:14px}.term-stat{padding:15px}.term-stat strong{font-size:21px}.term-panel-head{flex-wrap:wrap}.term-banner{padding:20px}.term-banner h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.terminal *{animation:none!important;transition:none!important}}
+
+/* Four operational destinations; archived experiments live inside research. */
+.archive-menu summary{cursor:pointer;color:#ea9bd5;padding:12px 0;font-size:13px}
+.archive-links{display:flex;flex-wrap:wrap;gap:10px;padding:12px 0}
+.archive-links button{cursor:pointer;padding:12px 16px;border-radius:10px}
+@media(max-width:760px){.sidebar nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}.sidebar nav .nav{min-width:0}.sidebar nav .nav span{font-size:9px}.archive-links{display:grid;grid-template-columns:1fr}}
