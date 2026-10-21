@@ -21,6 +21,25 @@ def timestamp(value):
     return value/1000
 
 
+def risk_status(folder):
+    """Risk checkpoint has its own timestamp; don't imply wallet/DB atomicity."""
+    path=folder/'reports/local/spot-risk/risk.sqlite'
+    if not path.is_file():return {'available':False}
+    try:
+        with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
+            db.execute('PRAGMA query_only=ON')
+            row=db.execute('SELECT substr(payload,1,65537) FROM checkpoint WHERE id=1').fetchone()
+        if not row or len(row[0])>65536:raise ValueError
+        state=json.loads(row[0]);updated=timestamp(state['last_ms'])
+        if type(state['day']) is not int or state['day']!=state['last_ms']//86400000:raise ValueError
+        if any(type(state[k]) is not bool for k in ('daily_halted','drawdown_halted','stop_active')):raise ValueError
+        peak=numeric(state['peak'],True);base=numeric(state['day_equity'],True);equity=numeric(state['equity'],True)
+        if min(peak,base)<=0 or peak<max(base,equity):raise ValueError
+        return dict(available=True,updated=updated,drawdown=max(0,1-equity/peak),daily_loss=max(0,1-equity/base),
+                    daily_halted=state['daily_halted'],drawdown_halted=state['drawdown_halted'],stop_active=state['stop_active'])
+    except (OSError,ValueError,KeyError,TypeError,sqlite3.Error,InvalidOperation,OverflowError):return {'available':False}
+
+
 def load(root,now=None):
     root=Path(root);folder=root/'reports/local/spot-runs/ema20'
     path=folder/'status.json';dbpath=folder/'reports/local/spot-execution/paper.sqlite'
@@ -82,7 +101,12 @@ def load(root,now=None):
             report['fills'].append(dict(time=timestamp(f['time_ms']),side=f['side'],quantity=numeric(f['quantity'],True),price=numeric(f['price'],True),fee=numeric(f['fee'],True)))
         report['buy_fills']=sum(f['side']=='BUY' for f in ledger['fills'])
         report['sell_fills']=sum(f['side']=='SELL' for f in ledger['fills'])
-        report['fresh']=s['phase']=='RUNNING' and 0<=(time.time() if now is None else now)-report['updated']<60
+        age=(time.time() if now is None else now)-report['updated']
+        report['age_seconds']=age if age>=0 else None
+        report['fresh']=s['phase']=='RUNNING' and 0<=age<60
+        report['risk']=risk_status(folder)
+        report['active_order_id']=ledger.get('active')
+        if report['active_order_id'] is not None and report['active_order_id'] not in ledger['orders']:raise ValueError
         report['stop']=(root/'STOP').exists() or (folder/'STOP').exists()
         return report
     except (OSError,ValueError,KeyError,TypeError,sqlite3.Error,InvalidOperation,OverflowError):

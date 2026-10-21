@@ -61,3 +61,11 @@ assert.doesNotMatch(element('connection').textContent,/dados recentes/);
 ctx.renderEma({available:false,status:'invalid'});
 assert.match(element('ema-cards').innerHTML,/Sem dados disponíveis/);
 console.log('OK: EMA live panel, real zeros, empty orders, STOP and invalid state.');
+
+ctx.renderEmaDiagnosis({available:true,phase:'RUNNING',fresh:true,updated:Date.now()/1000,age_seconds:5,last_signal:'HOLD:NO_CROSS',stop:false,cash:20,reserved:0,units:0,orders:[],risk:{available:true,updated:Date.now()/1000,daily_loss:0,drawdown:0,daily_halted:false,drawdown_halted:false}});
+assert.match(element('ema-health').innerHTML,/Aguardando cruzamento/);
+assert.match(element('ema-health').innerHTML,/Dados recentes/);
+ctx.renderEmaDiagnosis({available:true,phase:'STOPPED',fresh:false,orders:[],risk:{available:false}});
+assert.match(element('ema-health').innerHTML,/Sessão encerrada/);
+assert.match(element('ema-health').innerHTML,/Checkpoint indisponível/);
+console.log('OK: EMA diagnostics distinguish waiting signals and unknown risk checkpoints.');

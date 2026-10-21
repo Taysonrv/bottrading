@@ -62,3 +62,31 @@ class EmaViewTests(unittest.TestCase):
             with closing(sqlite3.connect(path)) as db:db.execute('UPDATE ledger SET payload=?',(json.dumps(l),));db.commit()
             r=load(tmp,101)
             self.assertTrue(r['in_transition']);self.assertIsNone(r['equity']);self.assertEqual(r['reserved'],5)
+
+    def risk_fixture(self,folder,**changes):
+        path=folder/'reports/local/spot-risk/risk.sqlite';path.parent.mkdir(parents=True)
+        state=dict(last_ms=100000,day=0,peak='20',day_equity='20',equity='20',daily_halted=False,drawdown_halted=False,stop_active=False)
+        state.update(changes)
+        with closing(sqlite3.connect(path)) as db:
+            db.execute('CREATE TABLE checkpoint(id INTEGER PRIMARY KEY,payload TEXT)');db.execute('INSERT INTO checkpoint VALUES(1,?)',(json.dumps(state),));db.commit()
+
+    def test_risk_checkpoint_is_read_only_and_independent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder,path,s,l=self.fixture(tmp);self.risk_fixture(folder,equity='18',daily_halted=True,drawdown_halted=True)
+            r=load(tmp,101)
+            self.assertTrue(r['risk']['available']);self.assertTrue(r['risk']['drawdown_halted'])
+            self.assertAlmostEqual(r['risk']['drawdown'],.1)
+            self.assertEqual(r['equity'],20) # Different checkpoint timestamps/sources aren't merged.
+            self.assertEqual(r['age_seconds'],1)
+
+    def test_missing_or_invalid_risk_is_not_reported_as_safe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder,path,s,l=self.fixture(tmp)
+            self.assertFalse(load(tmp,101)['risk']['available'])
+            self.risk_fixture(folder,daily_halted=0)
+            self.assertFalse(load(tmp,101)['risk']['available'])
+
+    def test_future_report_age_is_unknown_not_recent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.fixture(tmp);r=load(tmp,99)
+            self.assertIsNone(r['age_seconds']);self.assertFalse(r['fresh'])

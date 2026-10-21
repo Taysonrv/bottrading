@@ -240,6 +240,7 @@ function renderShadow(s){
 
 
 function renderEma(s){
+ renderEmaDiagnosis(s);
  const valid=!!s.available,active=!$('ema').hidden;
  const sides={BUY:'Compra',SELL:'Venda'},states={NEW:'Nova',PARTIAL:'Parcial',FILLED:'Preenchida',CANCELED:'Cancelada',REJECTED:'Rejeitada'};
  if(!valid){
@@ -263,4 +264,25 @@ function renderEma(s){
  if(active){$('process-help').hidden=true;$('updated').textContent=valid?'EMA/ATR · medição '+date(s.updated):'EMA/ATR · relatório indisponível';$('connection').textContent=valid&&s.fresh&&!s.stop?'● EMA/ATR · dados recentes':'○ EMA/ATR · confira estado';$('notice').textContent='Sessão EMA/ATR com 20 USDT fictícios. Nenhuma ordem real. O botão STOP é global e não liquida posições.';$('notice').hidden=false;}
 }
 
-if(typeof location!=='undefined'&&location.hash==='#ema')document.querySelector('[data-view="ema"]').click();
+if(typeof location!=='undefined'&&['ema','diagnosis','overview','live20','shadow','metamask','activity','research','positions'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
+
+
+function renderEmaDiagnosis(s){
+ const r=s.risk||{},age=Number.isFinite(s.age_seconds)?number(s.age_seconds,0)+' s':'indisponível';
+ const rows=[];
+ if(!s.available){rows.push(['Dados da sessão',s.status==='invalid'?'Relatório inválido ou indisponível':'Sessão ainda não encontrada','attention','Confira o iniciador EMA/ATR e sua pasta de dados; nenhum saldo foi reiniciado.']);}
+ else{
+  rows.push(['Atualização da coleta',s.phase==='STOPPED'?'Sessão encerrada':s.phase==='ERROR'?'Erro de coleta':s.fresh?'Dados recentes':'Sem atualização recente',s.fresh?'ok':'attention','Última medição: '+date(s.updated)+' · idade '+age+'. O painel não consulta processos do sistema.']);
+  const hold=s.last_signal==='HOLD:NO_CROSS'||s.last_signal==='WARMUP_REPLAYED';
+  rows.push(['Sinal da estratégia',hold?'Aguardando cruzamento EMA 20/50':s.last_signal,s.fresh?'ok':'attention',hold?'Permanecer em caixa é uma decisão válida. O bot exige novo candle fechado, tendência EMA 200 e filtro ATR.':'Último sinal salvo; confira ordens e filtros. Não garante preenchimento.']);
+  rows.push(['STOP manual',s.stop?'Acionado':'Não acionado',s.stop?'blocked':'ok','STOP bloqueia ordens sem liquidar posições. O botão do painel afeta as simulações da pasta.']);
+  const riskFresh=r.available&&Date.now()/1000-r.updated>=0&&Date.now()/1000-r.updated<60;
+  rows.push(['Trava de perda diária',!r.available?'Checkpoint indisponível':r.daily_halted?'Entradas bloqueadas':riskFresh?'Não acionada':'Último estado salvo',!r.available?'attention':r.daily_halted?'blocked':riskFresh?'ok':'attention',r.available?'Perda em relação à base diária: '+percent(r.daily_loss)+' · checkpoint '+date(r.updated)+'. Recuperar saldo não remove a trava dentro do mesmo dia UTC.':'Sem checkpoint válido, não é possível confirmar a trava.']);
+  rows.push(['Trava de drawdown',!r.available?'Checkpoint indisponível':r.drawdown_halted?'Entradas bloqueadas':riskFresh?'Não acionada':'Último estado salvo',!r.available?'attention':r.drawdown_halted?'blocked':riskFresh?'ok':'attention',r.available?'Queda em relação ao pico: '+percent(r.drawdown)+' · trava persiste após reinício e exige revisão.':'Não interpretar ausência de checkpoint como risco liberado.']);
+  const pending=(s.orders||[]).find(o=>o.id===s.active_order_id);
+  rows.push(['Ordem pendente',s.active_order_id?(pending?(pending.side==='BUY'?'Compra':'Venda')+' · '+(pending.status==='PARTIAL'?'parcial':'aguardando preenchimento'):'Ordem ativa fora do recorte'):'Nenhuma','info','Caixa reservado: '+number(s.reserved,6)+' USDT. Preenchimentos dependem das próximas cotações e da liquidez simulada.']);
+  rows.push(['Inventário e proteção',s.units>0?(s.protection?'Posição com stop/alvo sintéticos':'Posição sem proteção confirmada'):'Sem posição aberta',s.units>0&&!s.protection?'blocked':'info',s.units>0?'Quantidade: '+number(s.units,8)+'. Proteção depende do processo ativo e pode falhar em gaps ou mínimos de ordem.':'Capital permanece em caixa; não existe posição a encerrar.']);
+ }
+ if(!$('diagnosis').hidden&&s.available){$('process-help').hidden=true;$('updated').textContent='Diagnóstico EMA/ATR · medição '+date(s.updated);$('connection').textContent=s.fresh&&!s.stop?'● EMA/ATR · dados recentes':'○ EMA/ATR · confira estado';$('notice').textContent='Diagnóstico da sessão EMA/ATR. Os relatórios da simulação anterior aparecem separadamente abaixo; não somar as carteiras.';}
+ $('ema-health').innerHTML=rows.map(([title,value,level,detail])=>`<article class="health-check"><div><h3>${escape(title)}</h3><p>${escape(value)}</p><small>${escape(detail)}</small></div><span class="tag ${level==='blocked'?'bad':level==='attention'?'warn':''}">${level==='blocked'?'Bloqueado':level==='attention'?'Atenção':level==='ok'?'OK':'Informação'}</span></article>`).join('');
+}
