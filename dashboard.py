@@ -263,11 +263,12 @@ class Handler(BaseHTTPRequestHandler):
         if not self.boundary():
             return
         path = urlsplit(self.path).path
-        if path in ('/', '/app.js', '/market.js', '/metamask.js', '/style.css'):
+        if path in ('/', '/app.js', '/market.js', '/metamask.js', '/style.css', '/terminal.css'):
             filename, mime = {'/': ('index.html', 'text/html; charset=utf-8'),
                               '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
                               '/market.js': ('market.js', 'text/javascript; charset=utf-8'),
                               '/metamask.js': ('metamask.js', 'text/javascript; charset=utf-8'),
+                              '/terminal.css': ('terminal.css', 'text/css; charset=utf-8'),
                               '/style.css': ('style.css', 'text/css; charset=utf-8')}[path]
             return self.send(200, (ASSETS / filename).read_bytes(), mime)
         session = self.session()

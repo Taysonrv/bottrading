@@ -121,10 +121,11 @@ function render(data){renderKronos(data.kronos_lab||{});renderSpotResearch(data.
  if(typeof metamaskChrome==='function') metamaskChrome();
  renderEma(data.ema||{},data.multipair||{});
  renderMultipair(data.multipair||{});
+ renderTerminal(data);
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
-for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={ema:'EMA/ATR · simulação em andamento.',shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={terminal:'Terminal de operações.',ema:'EMA/ATR · simulação em andamento.',shadow:'V2 · demonstração offline.',live20:'Simulação ao vivo · 20 USDT.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
 
@@ -265,7 +266,8 @@ function renderEma(s,multipair={}){
  if(active){$('process-help').hidden=true;$('updated').textContent=valid?'EMA/ATR · medição '+date(s.updated):'EMA/ATR · relatório indisponível';$('connection').textContent=valid&&s.fresh&&!s.stop?'● EMA/ATR · dados recentes':'○ EMA/ATR · confira estado';$('notice').textContent='Sessão EMA/ATR com 20 USDT fictícios. Nenhuma ordem real. O botão STOP é global e não liquida posições.';$('notice').hidden=false;}
 }
 
-if(typeof location!=='undefined'&&['ema','diagnosis','overview','live20','shadow','metamask','activity','research','positions'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
+if(typeof location!=='undefined'&&!location.hash)location.hash='#terminal';
+if(typeof location!=='undefined'&&['terminal','ema','diagnosis','overview','live20','shadow','metamask','activity','research','positions'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
 
 
 function renderEmaDiagnosis(s,multipair={}){
@@ -322,4 +324,53 @@ function renderKronos(s){
  const y=v=>250-(v-low)/span*220,x=i=>50+i/s.horizon*700;
  const path=values=>[s.anchor_close,...values].map((v,i)=>(i?'L':'M')+x(i).toFixed(2)+','+y(v).toFixed(2)).join(' ');
  $('kronos-paths').innerHTML='<svg viewBox="0 0 800 290" role="img" aria-label="Trajetórias previstas pelo Kronos, não preços observados" style="width:100%;height:auto"><title>Previsões experimentais de fechamento</title><path d="M50 '+y(s.anchor_close)+' H750" stroke="#94a3b8" stroke-dasharray="5 5" fill="none"/>'+s.paths.map(p=>'<path d="'+path(p)+'" fill="none" stroke="#a78bfa" stroke-opacity="0.35" stroke-width="1.5"/>').join('')+'<path d="'+path(s.bands.map(b=>b.p50))+'" fill="none" stroke="#22d3ee" stroke-width="3"/><text x="50" y="280" fill="#94a3b8">Origem: '+escape(date(s.cutoff_ms/1000))+'</text><text x="600" y="280" fill="#94a3b8">Horizonte '+s.horizon+'h</text><text x="5" y="25" fill="#94a3b8">'+number(high,0)+'</text><text x="5" y="250" fill="#94a3b8">'+number(low,0)+'</text></svg><p class="panel-note">Roxo: amostras · ciano: mediana do modelo · tracejado: último fechamento conhecido.</p>';
+}
+
+function terminalChart(k,ema){
+ const candles=k.candles||[];
+ if(!k.available||candles.length<2)return empty('Aguardando candles verificados.','Os candles desta tela vêm da janela registrada na previsão Kronos; não usamos dados artificiais.');
+ const future=k.paths||[],horizon=k.horizon||0,total=candles.length+horizon;
+ const refs=ema.protection?[ema.protection.stop,ema.protection.take].filter(Number.isFinite):[];
+ const values=[...candles.flatMap(c=>[c.low,c.high]),...future.flat(),...refs];
+ const lo=Math.min(...values),hi=Math.max(...values),span=hi-lo||1;
+ const x=i=>45+(i+.5)/total*850,y=v=>28+(hi-v)/span*265,width=Math.max(2,850/total*.58);
+ const split=x(candles.length-.5),last=candles.at(-1);
+ const plot=values=>values.map((v,i)=>(i?'L':'M')+x(candles.length-1+i).toFixed(2)+','+y(v).toFixed(2)).join(' ');
+ let svg='<svg viewBox="0 0 950 340" role="img" aria-label="Candles reais registrados e futuros simulados pelo modelo"><title>BTC/USDT1h: observado versus previsto</title><rect x="'+split+'" y="15" width="'+(905-split)+'" height="287" fill="#fa70b509"/>';
+ for(let i=0;i<5;i++){const v=lo+span*i/4;svg+='<path d="M45 '+y(v)+' H905" stroke="#2e2039" stroke-dasharray="3 5"/><text x="910" y="'+(y(v)+4)+'" fill="#a086b0" font-size="10">'+number(v,0)+'</text>';}
+ svg+='<path d="M'+split+' 15 V302" stroke="#a26794" stroke-dasharray="4 5"/>';
+ svg+=candles.map((c,i)=>{const color=c.close>=c.open?'#72efbc':'#ff7aab';return '<path d="M'+x(i)+' '+y(c.high)+' V'+y(c.low)+'" stroke="'+color+'"/><rect x="'+(x(i)-width/2)+'" y="'+Math.min(y(c.open),y(c.close))+'" width="'+width+'" height="'+Math.max(1,Math.abs(y(c.open)-y(c.close)))+'" fill="'+color+'"/>';}).join('');
+ svg+=future.map(p=>'<path d="'+plot([last.close,...p])+'" fill="none" stroke="#f778c2" stroke-opacity=".4" stroke-width="1.5"/>').join('');
+ svg+='<path d="'+plot([last.close,...(k.bands||[]).map(b=>b.p50)])+'" fill="none" stroke="#62e6e6" stroke-width="2.5"/>';
+ if(ema.protection)for(const [name,value,color] of [['Stop',ema.protection.stop,'#ff7aab'],['Alvo',ema.protection.take,'#72efbc']])if(Number.isFinite(value))svg+='<path d="M45 '+y(value)+' H905" stroke="'+color+'" stroke-dasharray="6 6"/><text x="50" y="'+(y(value)-5)+'" fill="'+color+'" font-size="10">'+name+' EMA · '+number(value,2)+'</text>';
+ for(const f of ema.fills||[]){const index=candles.findIndex(c=>f.time*1000>=c.time_ms&&f.time*1000<c.time_ms+3600000);if(index>=0)svg+='<circle cx="'+x(index)+'" cy="'+y(f.price)+'" r="4" fill="'+(f.side==='BUY'?'#72efbc':'#ff7aab')+'"/>';}
+ return svg+'<text x="45" y="326" fill="#a086b0" font-size="10">'+escape(date(candles[0].time_ms/1000))+'</text><text x="'+(split+6)+'" y="326" fill="#f778c2" font-size="10">Previsão · '+horizon+'h</text></svg>';
+}
+function renderTerminal(data){
+ const s=data.ema||{},m=data.multipair||{},k=data.kronos_lab||{},r=s.risk||{};
+ const valid=!!s.available,now=Date.now()/1000,marketAge=now-(m.updated_ms||0)/1000;
+ const marketFresh=marketAge>=0&&marketAge<180&&m.pairs?.length===6&&m.pairs.every(p=>p.status==='OK');
+ const riskFresh=r.available&&now-r.updated>=0&&now-r.updated<60;
+ const stop=!!(data.stop||s.stop),riskBlocked=!!(stop||r.daily_halted||r.drawdown_halted);
+ const stage=(title,value,note,level)=>'<article class="term-stage '+level+'"><div class="term-stage-top"><span>'+title+'</span><span>⬡</span></div><b>'+escape(value)+'</b><small>'+escape(note)+'</small></article>';
+ $('term-pipeline').innerHTML=[stage('01 / MARKET',marketFresh?'6 pares / coleta recente':'Coleta sem confirmação',m.updated_ms?'Consulta '+date(m.updated_ms/1000):'Sem relatório',marketFresh?'ok':'warn'),stage('02 / STRATEGY',valid?s.last_signal==='HOLD:NO_CROSS'?'Aguardando cruzamento':s.last_signal:'Sem sessão EMA','BTC/USDT · candle1h',s.fresh?'ok':'warn'),stage('03 / RISK',riskBlocked?'Entradas bloqueadas':riskFresh?'Travas sem acionamento':'Risco sem leitura recente','1% operação · 3% dia · 10% DD',riskBlocked||!riskFresh?'warn':'ok'),stage('04 / EXECUTION',s.active_order_id?'Ordem fictícia pendente':valid?'Sem ordem pendente':'Sem carteira confirmada','Nenhuma ordem real',s.fresh?'ok':'warn'),stage('05 / KRONOS',k.available?k.samples+' trajetórias registradas':'Sem previsão','Modelo experimental · sem ordens','model'),stage('06 / VALIDATION','Ainda sem aprovação','Resultados líquidos inconsistentes','warn')].join('');
+ const stats=[['Patrimônio fictício',valid?number(s.equity,4)+' USDT':'—',valid?'Capital inicial '+number(s.capital)+' USDT':'Nenhuma medição disponível'],['Resultado líquido',valid?number(s.pnl,4)+' USDT':'—','Realizado '+number(s.realized,4)+' USDT'],['Drawdown atual',r.available?percent(r.drawdown):'—',riskFresh?'Checkpoint recente':'Confira idade em Diagnóstico'],['Preenchimentos',valid?number(s.buy_fills+s.sell_fills,0):'—','Taxas '+number(s.fees,6)+' USDT']];
+ $('term-metrics').innerHTML=stats.map(([title,value,note])=>'<article class="term-stat"><p>'+escape(title)+'</p><strong>'+escape(value)+'</strong><small>'+escape(note)+'</small></article>').join('');
+ $('term-chart').innerHTML=terminalChart(k,s);
+ $('term-chart-note').textContent=k.available?'Candles históricos registrados até '+date(k.cutoff_ms/1000)+' · previsão emitida '+date(k.issued_ms/1000)+'. A linha futura é do modelo; não é preço observado nem sinal de entrada.':'Sem janela de candles verificada. A ausência de gráfico não significa preço zero.';
+ const angle=valid&&Number.isFinite(s.equity)&&s.equity>0?Math.max(0,Math.min(360,(s.cash-s.reserved)/s.equity*360)):0;
+ $('term-allocation').innerHTML=valid?'<div class="term-ring" style="--cash-angle:'+angle+'deg"><div><strong>'+number(s.cash-s.reserved,2)+'</strong><small>CAIXA LIVRE / USDT</small></div></div>':empty('Carteira sem medição.');
+ const riskRows=[['Reserva',number(s.reserved,4)+' USDT'],['Posição',s.units>0?s.symbol+' · '+number(s.units,8):valid?'Em caixa':'Indisponível'],['Teto por entrada','6 USDT com taxa'],['Kill switch',stop?'Acionado':'Não acionado'],['Última medição',date(s.updated)]];
+ $('term-risk').innerHTML=riskRows.map(([label,value])=>'<div class="term-risk-row"><span>'+escape(label)+'</span><b>'+escape(value)+'</b></div>').join('');
+ $('term-radar-state').textContent=marketFresh?'COLETA RECENTE':'DADOS SEM ATUALIZAÇÃO RECENTE';
+ $('term-radar').innerHTML=m.pairs?.length?table(['Par','Fechamento','Leitura','Motivo'],m.pairs.map(p=>[escape(p.symbol),number(p.close,p.close<1?5:2),escape(p.status==='OK'?(p.action==='HOLD'?'Aguardar':p.action):'Falha'),escape(p.reason)])):empty('Sem relatório multipar.');
+ $('term-orders').innerHTML=s.orders?.length?table(['Lado','Estado','Quantidade','Preço'],s.orders.slice(-6).reverse().map(o=>[escape(o.side),escape(o.status),number(o.quantity,8),number(o.price,2)])):empty('Nenhuma ordem registrada.','Sem sinal válido, o bot pode permanecer em caixa.');
+ const logs=[];
+ if(valid)logs.push([s.updated,'EMA / '+s.last_signal,s.reason||'Estado registrado']);
+ if(m.updated_ms)logs.push([m.updated_ms/1000,'RADAR / '+(m.timeframe||'—'),m.selection?.candidate?'Prévia: '+m.selection.candidate:'Sem candidato na prévia']);
+ if(k.available)logs.push([k.issued_ms/1000,'KRONOS / previsão salva',k.samples+' trajetórias · horizonte '+k.horizon+'h']);
+ for(const f of (s.fills||[]).slice(-5))logs.push([f.time,f.side+' / preenchimento fictício',number(f.quantity,8)+' · '+number(f.price,2)+' USDT']);
+ logs.sort((a,b)=>b[0]-a[0]);
+ $('term-log').innerHTML=logs.length?logs.map(([t,title,note])=>'<div class="term-event"><time>'+escape(date(t))+'</time><strong>'+escape(title)+'</strong><small>'+escape(note)+'</small></div>').join(''):empty('Nenhum evento disponível.');
+ if(!$('terminal').hidden){$('process-help').hidden=true;$('heading').textContent='Terminal de operações.';$('updated').textContent=valid?'Carteira EMA · '+date(s.updated):'Carteira sem medição';$('connection').textContent=s.fresh?'● EMA · dados recentes':'○ EMA · confira atualização';$('notice').hidden=false;$('notice').textContent=stop?'STOP acionado. Posições não são liquidadas automaticamente.':'Somente saldo fictício. Monitoramento multipar e Kronos são observações; a execução atual permanece BTC/1h.';}
 }

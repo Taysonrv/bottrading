@@ -76,3 +76,18 @@ Atualização automática a cada 10 segundos. Relatório com mais de 60 segundos
 
 
 A aba **Diagnóstico** também mostra a saúde da EMA/ATR: idade da medição, último sinal, STOP, perda diária, drawdown, ordem pendente e inventário protegido. Os limites são lidos do checkpoint persistido em modo somente leitura; indisponibilidade não é apresentada como risco liberado. O checkpoint tem horário próprio e não é combinado com a carteira como se fosse uma transação única. O cabeçalho do diagnóstico usa a sessão EMA quando ela está disponível; a sessão anterior permanece identificada abaixo.
+
+## Terminal visual
+
+Abra `http://127.0.0.1:8768/#terminal` ou selecione Terminal na navegação.
+A tela inicial sem fragmento agora abre o terminal. As abas anteriores continuam
+acessíveis. A apresentação em preto/magenta reúne estados da coleta, estratégia,
+risco e execução, carteira fictícia, radar multipar, ordens e decisões registradas.
+
+O gráfico usa os últimos48candles reais da entrada da previsão Kronos, com o
+horário de corte explicitamente identificado. Não é uma nova conexão de mercado
+em tempo real. As trajetórias previstas começam após o corte; mediana e amostras
+são diferentes dos candles observados. Stop/alvo e preenchimentos aparecem apenas
+quando registrados na sessão e dentro da janela do gráfico. Não há curva de lucro
+inventada, agentes fictícios ou indicação verde para coleta antiga. Os efeitos
+cenográficos3D ainda não fazem parte desta versão funcional.

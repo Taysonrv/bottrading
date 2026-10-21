@@ -1,5 +1,6 @@
 """Read-only projection of the isolated Kronos forecast, not the trading engine."""
 import json
+import math
 from pathlib import Path
 from spot_engine.kronos_lab import summarize
 
@@ -21,9 +22,18 @@ def load(root):
             if bands!=r['bands']:raise ValueError
             anchor=float(r['anchor_close'])
             if not 0<anchor<1e10:raise ValueError
+            candles=[]
+            for row in r.get('input_rows',[])[-48:]:
+                if len(row)!=6 or type(row[0]) is not int or row[0]+3600000>r['cutoff_ms']:raise ValueError
+                values=[float(v) for v in row[1:]]
+                if any(not math.isfinite(v) for v in values):raise ValueError
+                o,h,l,c,v=values
+                if not 0<l<=min(o,c)<=max(o,c)<=h or v<0:raise ValueError
+                if candles and row[0]!=candles[-1]['time_ms']+3600000:raise ValueError
+                candles.append(dict(time_ms=row[0],open=o,high=h,low=l,close=c))
             return dict(available=True,issued_ms=r['issued_ms'],cutoff_ms=r['cutoff_ms'],
                         samples=r['samples'],horizon=r['horizon'],anchor_close=anchor,
-                        paths=r['paths'],bands=bands,approved=False,
+                        paths=r['paths'],bands=bands,candles=candles,approved=False,
                         note='Amostras do modelo, não probabilidades calibradas. Nenhuma ordem, sinal de entrada ou lucro calculado.')
         except (OSError,ValueError,KeyError,TypeError):return dict(available=False,status='invalid')
     return dict(available=False,status='missing')
