@@ -114,7 +114,18 @@ console.log('OK: terminal preserves real zeros, stale state and observed/forecas
 
 ctx.renderSystemIntegration({controller:{fresh:false},execution:{fresh:false},market:{fresh:false}});
 assert.match(element('term-system').textContent,/sem atividade confirmada/);
-assert.match(element('term-system').textContent,/não implementada/);
+assert.match(element('term-system').textContent,/estado próprio/);
 ctx.renderSystemIntegration({controller:{fresh:true},execution:{fresh:true},market:{fresh:true}});
 assert.match(element('term-system').textContent,/iniciador único ativo/);
 console.log('OK: central integration scope and stale controller.');
+
+ctx.renderPortfolio({available:true,fresh:false,phase:'STOPPED',cash:'20',capital:'20',reserved:'0',equity:null,fees:'0',realized:'0',orders:[],fills:[]});
+assert.match(element('portfolio-status').textContent,/Sem atualização recente/);
+assert.match(element('portfolio-wallet').innerHTML,/20,000000/);
+assert.match(element('portfolio-fills').innerHTML,/Nenhum preenchimento/);
+
+ctx.renderTerminal({system:{controller:{engine:'portfolio'}},portfolio:{available:true,fresh:true,capital:'20',cash:'20',reserved:'0',equity:'20',fees:'0',realized:'0',drawdown:'0',updated:Date.now()/1000,orders:[],fills:[],reason:'WAITING_SIGNAL'},multipair:{},kronos_lab:{}});
+assert.match(element('term-metrics').innerHTML,/20,0000 USDT/);
+assert.match(element('notice').textContent,/Saldo compartilhado fictício/);
+assert.match(element('connection').textContent,/Multipar/);
+console.log('OK: terminal switches to active shared wallet without summing EMA.');

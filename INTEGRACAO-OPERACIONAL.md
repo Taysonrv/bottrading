@@ -42,3 +42,8 @@ Radar multipar → observação/seleção experimental → painel. Ainda não h�
 5. Evidência fora da amostra, custos e teste prolongado. Testnet e execução real seguem pendentes; nenhuma integração nova autoriza dinheiro real.
 
 Os stops atuais dependem do processo em execução. A supervisão encerra em falhas, mas não garante proteção de uma posição durante indisponibilidade. A nova integração é uma etapa verificável; ainda não equivale a um bot multipar autônomo de produção 24/7.
+
+
+## Atualização: experimento multipar implementado
+
+A carteira compartilhada PAPER e seu motor agora estão disponíveis em spot_engine/portfolio.py e portfolio_run.py. Use operar.py --engine portfolio --start para iniciar motor e painel juntos, sem duplicar o coletor. Veja CARTEIRA-MULTIPAR.md para regras e limitações. O Terminal passa a exibir o motor ativo e a carteira compartilhada; a EMA antiga mantém identidade e saldo separados. A lista anterior de pendências descreve o estado antes desta atualização: carteira compartilhada foi implementada, mas alertas, continuidade ilimitada, testnet e aprovação estatística continuam pendentes.
