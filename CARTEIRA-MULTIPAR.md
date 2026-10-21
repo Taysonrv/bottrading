@@ -47,3 +47,23 @@ Se o painel já estiver aberto separadamente, retome somente o motor com:
 ```
 
 Esse modo não cria nem encerra o painel externo e não imprime um novo código de acesso. Continua respeitando STOP, prazo e identidade existentes. Ctrl+C encerra os processos próprios; nunca remove STOP automaticamente.
+
+## Alertas do motor multipar
+
+O iniciador atualizado coleta alertas em segundo plano, sem permitir que falhas de notificação interrompam ordens ou proteção. Credenciais TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID são lidas do ambiente; nunca são gravadas no repositório ou nos arquivos da fila.
+
+- Compras e vendas: par, quantidade, preço, taxa; venda inclui resultado realizado após as duas taxas.
+- Saúde: execução, erro, parada e falta de atualização; estados iguais não geram avisos contínuos.
+- Primeiro uso: começa no ponto atual do ledger, sem reenviar operações antigas. Depois disso lê todos os preenchimentos novos, mesmo além dos últimos 100 do painel.
+- Falha de envio preserva a fila. Um envio por ciclo de 10 segundos; o processo permanece independente da carteira.
+- Entrega é ao menos uma vez: uma queda depois de o Telegram receber e antes da confirmação local pode repetir uma mensagem. Não há promessa de entrega exatamente uma vez.
+- Estado em alerts-state.json e alerts-status.json dentro de reports/local/portfolio. Não apagar para contornar inconsistências; identidade ou histórico divergente suspendem alertas sem alterar trading.
+
+Se o iniciador já estava rodando antes desta atualização, pode executar o coletor separado, sem reiniciar o motor:
+
+```powershell
+.\.configurar-telegram.ps1
+.\.venv-spot\Scripts\python.exe portfolio_alerts.py --start
+```
+
+O script de configuração existente envia uma mensagem de teste. Sem credenciais, o coletor mantém apenas a fila local e não envia nada. Ao usar --data-dir, aponte para a mesma pasta de dados da simulação. Não inicie dois coletores para a mesma carteira; a trava alerts.lock evita duplicidade.

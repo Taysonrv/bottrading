@@ -104,6 +104,10 @@ def main():
                 log=stack.enter_context((folder/('system-'+name+'.log')).open('a',encoding='utf-8'))
                 flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
                 children.append((name,subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=flags)))
+            if args.engine=='portfolio':
+                from portfolio_alerts import service
+                try:stack.enter_context(service(root))
+                except Exception:print('Alertas indisponíveis; execução PAPER preservada.',flush=True)
             print(f'Terminal: http://127.0.0.1:{args.port}/#terminal',flush=True)
             print('Painel externo: use o código do painel já aberto.' if args.execution_only else 'Código de acesso: '+env['SPOTLAB_ACCESS_CODE'],flush=True)
             print('PAPER: '+('carteira compartilhada de 20 USDT, seis pares15m; experimento separado da EMA.' if args.engine=='portfolio' else 'BTC/1h executa sinais; seis pares15m apenas observados.')+' Não feche este terminal.',flush=True)
