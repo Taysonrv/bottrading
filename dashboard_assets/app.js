@@ -25,7 +25,7 @@ async function api(path, body){const response=await fetch(path,{method:body?'POS
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#25375c" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
-function render(data){renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
+function render(data){renderSpotResearch(data.spot_research||{});renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
@@ -119,7 +119,8 @@ function render(data){renderShadow(data.ai_shadow||{});renderAudit(data.session_
  renderOverview20(data.live_small||{},data.stop);
  renderSessionHealth(data.live_small||{},data.stop);
  if(typeof metamaskChrome==='function') metamaskChrome();
- renderEma(data.ema||{});
+ renderEma(data.ema||{},data.multipair||{});
+ renderMultipair(data.multipair||{});
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
@@ -193,7 +194,7 @@ function renderSessionHealth(s,stop=false){
  if(!exists)return;
  const age=Date.now()/1000-(s.updated||0),fresh=s.phase==='waiting'&&age>=0&&age<180,expired=Date.now()/1000>=s.end;
  const checks=[
- ['Coleta de mercado',fresh?'Dados recentes':'Sem medição recente',fresh?'ok':'attention','Última medição: '+date(s.updated)+'. Fase registrada: '+(s.phase||'indisponível')],
+ ['Coleta da simulação anterior',fresh?'Dados recentes nesta simulação':'Relatório antigo sem atualização',fresh?'ok':'attention','Última medição desta simulação: '+date(s.updated)+'. Este horário não representa a coleta EMA nem o observador de seis pares. Fase registrada: '+(s.phase||'indisponível')],
  ['Botão de desligar',stop?'STOP acionado':'STOP não acionado',stop?'blocked':'ok','A trava não vende a posição.'],
  ['Proteção de drawdown',s.halted?'Travada':'Não travada',s.halted?'blocked':'ok','Drawdown atual: '+percent(s.drawdown)+'; gatilho de 15%.'],
  ['Prazo da sessão',expired?'Prazo encerrado':'Dentro do prazo',expired?'blocked':'info','Término: '+date(s.end)+'. Não há reinício automático do saldo.'],
@@ -239,8 +240,8 @@ function renderShadow(s){
 }
 
 
-function renderEma(s){
- renderEmaDiagnosis(s);
+function renderEma(s,multipair={}){
+ renderEmaDiagnosis(s,multipair);
  const valid=!!s.available,active=!$('ema').hidden;
  const sides={BUY:'Compra',SELL:'Venda'},states={NEW:'Nova',PARTIAL:'Parcial',FILLED:'Preenchida',CANCELED:'Cancelada',REJECTED:'Rejeitada'};
  if(!valid){
@@ -267,7 +268,7 @@ function renderEma(s){
 if(typeof location!=='undefined'&&['ema','diagnosis','overview','live20','shadow','metamask','activity','research','positions'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
 
 
-function renderEmaDiagnosis(s){
+function renderEmaDiagnosis(s,multipair={}){
  const r=s.risk||{},age=Number.isFinite(s.age_seconds)?number(s.age_seconds,0)+' s':'indisponível';
  const rows=[];
  if(!s.available){rows.push(['Dados da sessão',s.status==='invalid'?'Relatório inválido ou indisponível':'Sessão ainda não encontrada','attention','Confira o iniciador EMA/ATR e sua pasta de dados; nenhum saldo foi reiniciado.']);}
@@ -284,5 +285,32 @@ function renderEmaDiagnosis(s){
   rows.push(['Inventário e proteção',s.units>0?(s.protection?'Posição com stop/alvo sintéticos':'Posição sem proteção confirmada'):'Sem posição aberta',s.units>0&&!s.protection?'blocked':'info',s.units>0?'Quantidade: '+number(s.units,8)+'. Proteção depende do processo ativo e pode falhar em gaps ou mínimos de ordem.':'Capital permanece em caixa; não existe posição a encerrar.']);
  }
  if(!$('diagnosis').hidden&&s.available){$('process-help').hidden=true;$('updated').textContent='Diagnóstico EMA/ATR · medição '+date(s.updated);$('connection').textContent=s.fresh&&!s.stop?'● EMA/ATR · dados recentes':'○ EMA/ATR · confira estado';$('notice').textContent='Diagnóstico da sessão EMA/ATR. Os relatórios da simulação anterior aparecem separadamente abaixo; não somar as carteiras.';}
+ const scannerAge=Date.now()/1000-(multipair.updated_ms||0)/1000;
+ const scannerPairs=multipair.pairs||[];
+ const scannerFresh=Number.isFinite(multipair.updated_ms)&&scannerAge>=0&&scannerAge<180;
+ const scannerOk=scannerFresh&&scannerPairs.length===6&&scannerPairs.every(p=>p.status==='OK');
+ rows.push(['Coleta multipar · '+(multipair.timeframe||'sem período'),scannerOk?'Seis pares com dados recentes':scannerFresh?'Coleta incompleta ou com falhas':'Sem atualização recente',scannerOk?'ok':'attention','Última consulta: '+date(multipair.updated_ms?multipair.updated_ms/1000:null)+'. BTC, ETH, SOL, BNB, XRP e DOGE. Observação separada da carteira BTC/1h.']);
  $('ema-health').innerHTML=rows.map(([title,value,level,detail])=>`<article class="health-check"><div><h3>${escape(title)}</h3><p>${escape(value)}</p><small>${escape(detail)}</small></div><span class="tag ${level==='blocked'?'bad':level==='attention'?'warn':''}">${level==='blocked'?'Bloqueado':level==='attention'?'Atenção':level==='ok'?'OK':'Informação'}</span></article>`).join('');
+}
+
+function renderMultipair(s){
+ let box=document.getElementById('ema-multipair');
+ if(!box){const anchor=document.getElementById('ema-signal');if(!anchor)return;box=document.createElement('div');box.id='ema-multipair';anchor.parentElement.appendChild(box);}
+ const recent=Number.isFinite(s.updated_ms)&&Date.now()-s.updated_ms>=0&&Date.now()-s.updated_ms<180000;
+ box.innerHTML='<h3>Monitoramento BTC · ETH · SOL · BNB · XRP · DOGE</h3><p class="panel-note">Somente observação · candles '+escape(s.timeframe||'indisponível')+'. A carteira atual continua em BTC/1h. '+(recent?'Coleta recente.':'Sem coleta recente; não use estes sinais.')+'</p>'+(s.pairs?.length?table(['Par','Coleta','Sinal do último candle','Motivo'],s.pairs.map(p=>[escape(p.symbol),escape(p.status),escape(p.action||'Indisponível'),escape(p.reason)])):empty('Aguardando coleta multipar.'));
+ if(s.selection){const c=s.selection;box.innerHTML+='<h3>Prévia de seleção: '+escape(c.candidate||'nenhum candidato')+'</h3><p class="panel-note">Caixa hipotético livre: 20 USDT · teto com taxa: 6 USDT. Não representa a carteira atual e não envia ordens. Desempate pelo menor spread, sem estimativa de lucro.</p>'+table(['Par','Elegível na prévia','Filtro'],(c.previews||[]).map(p=>[escape(p.symbol),p.eligible?'Sim':'Não',escape(p.reason)]));}
+}
+
+function renderSpotResearch(s){
+ const reports=s.reports||[];
+ $('spot-research-status').textContent=reports.length?'Pesquisa exploratória · sem aprovação. '+reports[0].source+' · salvo em '+date(reports[0].saved):'Nenhum relatório de auditoria temporal disponível nesta instalação. Não significa resultado zero.';
+ $('spot-research-results').innerHTML=reports.length?reports.map(r=>'<h3>'+escape(r.symbol)+' · '+escape(r.timeframe)+' · '+escape(r.strategy||'EMA/ATR')+'</h3>'+table(['Custos','Período UTC/local','Retorno líquido','Comprar e manter','Drawdown','Operações','Acerto','Profit factor','Sharpe','Bruto USDT','Taxas USDT','Slippage USDT'],r.rows.map(w=>[escape(({base:'Base',double_costs:'Custos dobrados',fixed_base:'Alvo fixo · base',fixed_double_costs:'Alvo fixo · custos dobrados',trailing_base:'Stop móvel · base',trailing_double_costs:'Stop móvel · custos dobrados'})[w.scenario]||w.scenario),escape(date(w.start_ms/1000)+' → '+date(w.end_ms/1000)),percent(w.net_return),percent(w.buy_hold_return),percent(w.max_drawdown),number(w.closed_trades,0),percent(w.win_rate),number(w.profit_factor,2),number(w.sharpe_zero_rf,2),number(w.gross_pnl,4),number(w.closed_trade_fees,4),number(w.closed_trade_slippage,4)]))+renderResearchJournal(r.journal)).join(''):empty('Relatórios não encontrados.','Os relatórios da nova EMA/ATR aparecem aqui quando disponíveis; as pesquisas antigas abaixo são independentes.');
+}
+
+function renderResearchJournal(j){
+ if(!j)return '';
+ if(!j.available)return '<p class="panel-note">Diário indisponível ou integridade inválida. Não representa ausência de operações.</p>';
+ const labels={fixed_base:'Alvo fixo · base',fixed_double_costs:'Alvo fixo · custos dobrados',trailing_base:'Stop móvel · base',trailing_double_costs:'Stop móvel · custos dobrados'};
+ const reasons={STOP:'Stop',STOP_GAP:'Stop com gap',TARGET:'Alvo',END_LIQUIDATION:'Fim da janela'};
+ return '<p class="panel-note">Diário histórico verificado por hash. Valores abaixo somam experimentos independentes, não uma carteira contínua. Horários de saída indicam o candle, não o instante exato do preenchimento. Últimas 30 operações por cenário.</p>'+j.groups.map(g=>'<details><summary>'+escape(labels[g.scenario]||g.scenario)+' · '+number(g.count,0)+' operações · líquido '+number(g.net,4)+' USDT</summary><p class="panel-note">Bruto '+number(g.gross,4)+' − taxas '+number(g.fees,4)+' − slippage '+number(g.slippage,4)+' = líquido '+number(g.net,4)+' USDT. '+escape(Object.entries(g.reasons).map(([k,v])=>(reasons[k]||k)+': '+v).join(' · '))+'</p>'+table(['Janela','Entrada','Candle da saída','Preço entrada','Preço saída','Quantidade','Motivo','Bruto','Taxas','Slippage','Líquido'],g.trades.map(t=>[number(t.window,0),escape(date(t.entry_ms/1000)),escape(date(t.exit_ms/1000)),number(t.entry,6),number(t.exit_price,6),number(t.quantity,8),escape(reasons[t.reason]||t.reason),number(t.gross_pnl,6),number(t.fees,6),number(t.slippage_cost,6),number(t.net_pnl,6)]))+'</details>').join('');
 }

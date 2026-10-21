@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 $chaveSegura = Read-Host 'CoinGecko Demo API key (entrada oculta)' -AsSecureString
 $chavePtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($chaveSegura)
