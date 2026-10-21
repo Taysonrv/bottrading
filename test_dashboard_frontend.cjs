@@ -129,3 +129,16 @@ assert.match(element('term-metrics').innerHTML,/20,0000 USDT/);
 assert.match(element('notice').textContent,/Saldo compartilhado fictício/);
 assert.match(element('connection').textContent,/Multipar/);
 console.log('OK: terminal switches to active shared wallet without summing EMA.');
+
+element('diagnosis').hidden=false;
+ctx.renderLaunchHelp({system:{execution:{fresh:true},controller:{fresh:true}}});
+assert.equal(element('process-help').hidden,true);
+ctx.renderLaunchHelp({system:{execution:{fresh:false,reason:'STOP'}},portfolio:{}});
+assert.equal(element('process-help').hidden,false);
+assert.equal(element('process-command').hidden,true);
+ctx.renderLaunchHelp({system:{execution:{fresh:false,reason:'NO_REPORT'}},portfolio:{}});
+assert.equal(element('process-command').hidden,false);
+element('diagnosis').hidden=true;
+ctx.renderLaunchHelp({system:{execution:{fresh:false}}});
+assert.equal(element('process-help').hidden,true);
+console.log('OK: startup guidance uses current motor and respects active/STOP state.');

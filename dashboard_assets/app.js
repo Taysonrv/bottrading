@@ -122,6 +122,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
  renderEma(data.ema||{},data.multipair||{});
  renderMultipair(data.multipair||{});
  renderTerminal(data);
+ renderLaunchHelp(data);
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
@@ -393,4 +394,14 @@ function renderPortfolio(s){
  $('portfolio-position').innerHTML=p?table(['Par','Quantidade','Stop','Alvo'],[[escape(p.symbol),escape(p.quantity),escape(p.stop),escape(p.take)]]):empty('Sem posição multipar registrada.');
  $('portfolio-orders').innerHTML=(s.orders||[]).length?table(['Par','Lado','Estado','Motivo'],s.orders.slice(-10).reverse().map(o=>[escape(o.symbol),escape(o.side),escape(o.status),escape(o.reason)])):empty('Nenhuma ordem multipar registrada.');
  $('portfolio-fills').innerHTML=(s.fills||[]).length?table(['Par','Lado','Preço','Quantidade','Taxa'],s.fills.slice(-10).reverse().map(f=>[escape(f.symbol),escape(f.side),escape(f.price),escape(f.quantity),escape(f.fee)])):empty('Nenhum preenchimento multipar registrado.');
+}
+
+function renderLaunchHelp(data){
+ const e=data.system?.execution,c=data.system?.controller||{},p=data.portfolio||{};
+ const running=!!(e?.fresh||c.fresh);
+ if(e&&!$('research').hidden){$('connection').textContent=e.fresh?'● Bot ativo · pesquisas históricas':'Pesquisas históricas · confira Bot ao vivo';$('updated').textContent='Relatórios de pesquisa com datas próprias; não representam o saldo do motor ativo.';$('notice').hidden=false;$('notice').textContent='Pesquisas e experimentos não iniciam o bot nem autorizam dinheiro real. Acompanhe a execução atual em Bot ao vivo.';}
+ const blocked=!!(data.stop||p.halt||['STOP','DEADLINE','DRAWDOWN','DAILY_LOSS'].includes(e?.reason));
+ $('process-help').hidden=!e||$('diagnosis').hidden||running;
+ $('process-command').hidden=blocked||running;
+ $('process-instruction').textContent=running?'Motor atual com atividade recente. Não inicie outro processo.':blocked?'O motor está parado com trava ou prazo encerrado. Revise o motivo no diagnóstico; iniciar novamente não remove essa condição.':'Não há execução recente confirmada. Confira processos existentes e o diagnóstico antes de iniciar o motor PAPER na pasta atualizada do projeto.';
 }
