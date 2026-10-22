@@ -493,3 +493,8 @@ function renderExternalContext(report){
  }
  $('external-context').innerHTML=parts.join('');
 }
+
+for(const button of document.querySelectorAll('[data-section-scroll]'))button.addEventListener('click',()=>{
+ const target=document.getElementById(button.dataset.sectionScroll);
+ if(target)target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+});

@@ -72,15 +72,21 @@ function drawOperationsMap(){
  ctx.clearRect(0,0,900,480);ctx.fillStyle='#100b1c';ctx.fillRect(0,0,900,480);
  const origin=projectMap([0,0,0],mapYaw,mapPitch);
  for(const [xyz,label,color] of [[[190,0,0],'X · EMA20/50','#9d8cff'],[[0,190,0],'Y · preço/EMA200','#53dbe5'],[[0,0,190],'Z · ATR/preço','#ed72ba']]){
-   const p=projectMap(xyz,mapYaw,mapPitch);ctx.strokeStyle=color;ctx.globalAlpha=.6;ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=color;ctx.font='14px sans-serif';ctx.fillText(label,p.x+8,p.y);
+   const p=projectMap(xyz,mapYaw,mapPitch);ctx.strokeStyle=color;ctx.globalAlpha=.6;ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=color;ctx.font='22px sans-serif';ctx.fillText(label,p.x+8,p.y);
  }
  const points=mapFeatures(m.pairs).map(p=>({...p,...projectMap(p.xyz,mapYaw,mapPitch)})).sort((a,b)=>b.depth-a.depth);
+ const labels=[];
  ctx.globalAlpha=fresh?1:.35;
  for(const p of points){
    const color=p.action==='ENTER_LONG'?'#50e5df':p.action==='EXIT_LONG'?'#ff76b7':'#af97f7';
    ctx.strokeStyle='#60506c';ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(p.x,p.y);ctx.stroke();
    ctx.shadowColor=color;ctx.shadowBlur=16;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,Math.max(4,9*p.zoom),0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-   ctx.font='bold 15px sans-serif';ctx.fillText(String(p.symbol),p.x+14,p.y-8);
+   ctx.font='bold 23px sans-serif';
+   const text=String(p.symbol),width=ctx.measureText(text).width,tx=Math.min(870-width,p.x+16);let ty=p.y-10;
+   for(let attempt=0;attempt<12&&labels.some(r=>tx<r.x+r.w&&tx+width>r.x&&ty-23<r.y&&ty>r.y-23);attempt++)ty+=27;
+   labels.push({x:tx,y:ty,w:width});
+   if(ty!==p.y-10){ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(tx,ty-9);ctx.stroke();}
+   ctx.fillText(text,tx,ty);
  }
  ctx.globalAlpha=1;
  $('operations-map-status').textContent=points.length?(fresh?'Dados recentes':'DADOS VENCIDOS · última amostra')+' · '+points.length+' pares · coleta '+date(m.updated_ms/1000):'Sem indicadores válidos para desenhar. Nenhum ponto artificial foi criado.';
@@ -93,10 +99,10 @@ function operationsChart(m,p){
  const low=Math.min(...values),high=Math.max(...values),span=high-low||high*.001;
  const first=candles[0].time,last=candles.at(-1).time+900,x=t=>40+(t-first)/(last-first)*740,y=v=>35+(high-v)/span*270;
  let svg='<svg viewBox="0 0 940 350" role="img" aria-label="Candles públicos 15 minutos '+escape(m.symbol)+'">';
- for(let i=0;i<4;i++){const price=high-span*i/3,py=y(price);svg+='<path d="M40 '+py+' H780" stroke="#49344c" stroke-dasharray="3 5"/><text x="790" y="'+py+'" fill="#c6b4cf" font-size="12">'+number(price,price<1?6:2)+'</text>';}
+ for(let i=0;i<4;i++){const price=high-span*i/3,py=y(price);svg+='<path d="M40 '+py+' H780" stroke="#49344c" stroke-dasharray="3 5"/><text x="790" y="'+py+'" fill="#c6b4cf" font-size="18">'+number(price,price<1?6:2)+'</text>';}
  for(const c of candles){const cx=x(c.time+450),color=c.close>=c.open?'#50e5df':'#ff76b7';svg+='<g opacity="'+(c.closed?1:.5)+'"><title>'+escape(date(c.time))+' · A '+number(c.open,6)+' · M '+number(c.high,6)+' · m '+number(c.low,6)+' · F '+number(c.close,6)+(c.closed?'':' · EM FORMAÇÃO')+'</title><path d="M'+cx+' '+y(c.high)+' V'+y(c.low)+'" stroke="'+color+'"/><rect x="'+(cx-4)+'" y="'+Math.min(y(c.open),y(c.close))+'" width="8" height="'+Math.max(1,Math.abs(y(c.open)-y(c.close)))+'" fill="'+color+'"/></g>';}
- for(const [price,label,color] of refs)svg+='<path d="M40 '+y(price)+' H780" stroke="'+color+'" stroke-dasharray="6 5"/><text x="45" y="'+(y(price)-6)+'" fill="'+color+'" font-size="12">'+label+' '+number(price,6)+'</text>';
- return svg+'<text x="40" y="335" fill="#c6b4cf" font-size="12">'+escape(date(first))+' → '+escape(date(last))+'</text></svg>';
+ for(const [price,label,color] of refs)svg+='<path d="M40 '+y(price)+' H780" stroke="'+color+'" stroke-dasharray="6 5"/><text x="45" y="'+(y(price)-6)+'" fill="'+color+'" font-size="18">'+label+' '+number(price,6)+'</text>';
+ return svg+'<text x="40" y="335" fill="#c6b4cf" font-size="18">'+escape(date(first))+' → '+escape(date(last))+'</text></svg>';
 }
 async function refreshOperationsCandles(){
  if($('app').hidden||$('terminal').hidden||operationsBusy)return;
