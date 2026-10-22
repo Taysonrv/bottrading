@@ -184,3 +184,9 @@ assert.match(candleSvg,/Stop sintético/);assert.match(candleSvg,/EM FORMAÇÃO/
 const otherPairSvg=ctx.operationsChart({symbol:'ETHUSDT',candles:[{time:1000,open:100,high:102,low:99,close:101},{time:1900,open:101,high:103,low:100,close:102}]},{position:{symbol:'BTC/USDT',stop:'98',take:'104'}});
 assert.doesNotMatch(otherPairSvg,/Stop sintético/);
 console.log('OK: 3D features use valid data and chart protection matches selected pair.');
+
+ctx.renderOperationHealth({});assert.match(element('operation-health').innerHTML,/sem medições/);
+ctx.renderOperationHealth({version:1,updated:Date.now()/1000-100,started:Date.now()/1000-1000,recent_seconds:60,stopped_seconds:0,unknown_seconds:940,last_gap_seconds:940,state:'RECENT'});
+assert.match(element('operation-health').innerHTML,/SEM ATUALIZAÇÃO RECENTE/);
+assert.match(element('operation-health').innerHTML,/15,7 min/);
+console.log('OK: availability keeps sampling gaps unknown and marks stale monitors.');

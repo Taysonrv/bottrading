@@ -125,6 +125,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
  renderLaunchHelp(data);
  renderEntryDiagnostics(data);
  renderExternalContext(data.external_context||{});
+ renderOperationHealth(data.operation_health||{});
  if(typeof updateOperationsVisuals==='function')updateOperationsVisuals(data);
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
@@ -498,3 +499,10 @@ for(const button of document.querySelectorAll('[data-section-scroll]'))button.ad
  const target=document.getElementById(button.dataset.sectionScroll);
  if(target)target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
 });
+
+function renderOperationHealth(s){
+ const age=Date.now()/1000-s.updated,valid=s.version===1&&Number.isFinite(age)&&age>=0&&age<45;
+ if(!s.version){$('operation-health').innerHTML=empty('Monitor ainda sem medições.');return;}
+ const duration=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?number(v/60,1)+' min':'—';
+ $('operation-health').innerHTML='<p class="panel-note">'+escape(valid?'Monitor com leitura recente':'MONITOR SEM ATUALIZAÇÃO RECENTE')+' · início '+escape(date(s.started))+'</p>'+table(['Classificação dos intervalos','Duração estimada'],[['Sinais recentes nas amostras',duration(s.recent_seconds)],['Motor reportado como parado',duration(s.stopped_seconds)],['Sem evidência suficiente',duration(s.unknown_seconds)],['Última lacuna de coleta',duration(s.last_gap_seconds)]])+'<p class="panel-note">Último estado observado: '+escape(s.state)+' · '+escape(date(s.updated))+'. Não é uma garantia de funcionamento 24/7.</p>';
+}
