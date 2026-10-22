@@ -154,3 +154,13 @@ ctx.renderEntryDiagnostics({multipair:{updated_ms:enow,timeframe:'15m',pairs:[{.
 assert.match(element('entry-checks').innerHTML,/EMA20 acima/);
 assert.match(element('entry-checks').innerHTML,/novo cruzamento/);
 console.log('OK: entry explanations distinguish missing data, pending cash and unconfirmed signals.');
+
+const perfFills=[{side:'BUY',symbol:'BTC/USDT',quantity:'1',price:'100',fee:'.1',time_ms:1000},{side:'SELL',symbol:'BTC/USDT',quantity:'1',price:'102',fee:'.102',time_ms:61000}];
+const perf=ctx.portfolioPerformance({fills:perfFills,buy_fills:1,sell_fills:1});
+assert.equal(perf.winRate,1);assert.equal(perf.averageMinutes,1);assert.equal(perf.profitFactor,null);
+assert.equal(ctx.portfolioPerformance({fills:perfFills,buy_fills:2,sell_fills:2}).complete,false);
+assert.equal(ctx.portfolioPerformance({fills:[],buy_fills:0,sell_fills:0}).winRate,null);
+ctx.renderPortfolioPerformance({available:true,equity:null,capital:'20',realized:'0',fees:'0',fills:[],buy_fills:0,sell_fills:0});
+assert.match(element('portfolio-performance').innerHTML,/Sem amostra completa/);
+assert.doesNotMatch(element('portfolio-performance').innerHTML,/NaN|Infinity/);
+console.log('OK: performance distinguishes missing marks, open inventory and incomplete history.');

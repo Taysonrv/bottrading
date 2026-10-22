@@ -388,6 +388,7 @@ function renderSystemIntegration(s){
 }
 
 function renderPortfolio(s){
+ renderPortfolioPerformance(s);
  $('portfolio-status').textContent=s.available?((s.fresh?'Relatório recente':'Sem atualização recente')+' · '+s.phase+' · '+s.reason+' · Trava: '+(s.halt||'nenhuma registrada')):'Experimento multipar não iniciado ou indisponível: '+(s.reason||'NOT_STARTED');
  const fmt=v=>v===null||v===undefined?'—':number(Number(v),6);
  $('portfolio-wallet').innerHTML=s.available?table(['Capital fictício','Caixa','Reservado','Patrimônio estimado','Taxas','Realizado'],[[fmt(s.capital),fmt(s.cash),fmt(s.reserved),fmt(s.equity),fmt(s.fees),fmt(s.realized)]]):empty('Sem carteira multipar ativa.');
@@ -435,4 +436,40 @@ function renderEntryDiagnostics(data){
    const trendState=close===null||trend===null?'Indisponível':close>trend?'Acima da EMA200':'Em/abaixo da EMA200';
    return [escape(row.symbol),escape(date(row.candle_close_ms/1000)),escape(relation),escape(trendState),percent(atr),escape(entryExplanation(row,m,p,system,!!data.stop,now))];
  })):empty('Sem avaliações registradas.','Dados ausentes não significam sinal de compra.');
+}
+
+function portfolioPerformance(s){
+ const fills=Array.isArray(s.fills)?s.fills:[],buys=s.buy_fills??fills.filter(f=>f.side==='BUY').length,sells=s.sell_fills??fills.filter(f=>f.side==='SELL').length;
+ const complete=Number.isInteger(buys)&&Number.isInteger(sells)&&buys+sells===fills.length;
+ let position=null,valid=complete;const trades=[];
+ if(complete)for(const f of fills){
+   const q=Number(f.quantity),price=Number(f.price),fee=Number(f.fee),t=f.time_ms;
+   if(![q,price,fee,t].every(Number.isFinite)||q<=0||price<=0||fee<0){valid=false;break;}
+   if(f.side==='BUY'&&!position)position={symbol:f.symbol,quantity:q,cost:q*price+fee,time:t};
+   else if(f.side==='SELL'&&position&&position.symbol===f.symbol&&q===position.quantity&&t>=position.time){trades.push({net:q*price-fee-position.cost,minutes:(t-position.time)/60000});position=null;}
+   else{valid=false;break;}
+ }
+ const gains=trades.reduce((a,t)=>a+Math.max(0,t.net),0),losses=trades.reduce((a,t)=>a+Math.max(0,-t.net),0);
+ return {buys,sells,complete:valid,closed:valid?trades.length:null,winRate:valid&&trades.length?trades.filter(t=>t.net>0).length/trades.length:null,
+   profitFactor:valid&&losses>0?gains/losses:null,noLosses:valid&&trades.length>0&&losses===0,
+   averageMinutes:valid&&trades.length?trades.reduce((a,t)=>a+t.minutes,0)/trades.length:null};
+}
+function renderPortfolioPerformance(s){
+ const box=$('portfolio-performance'),note=$('portfolio-performance-note');
+ if(!s.available){box.innerHTML=empty('Relatório da sessão indisponível.');note.textContent='Nenhum resultado inventado para dados ausentes.';return;}
+ const stats=portfolioPerformance(s),v=x=>x===null||x===undefined?'—':number(Number(x),6);
+ const equity=s.equity===null||s.equity===undefined?null:Number(s.equity),realized=Number(s.realized),capital=Number(s.capital);
+ const net=Number.isFinite(equity)&&Number.isFinite(capital)?equity-capital:null;
+ const unrealized=net!==null&&Number.isFinite(realized)?net-realized:null;
+ box.innerHTML=table(['Métrica','Valor'],[
+ ['Compras / vendas preenchidas',escape(String(stats.buys)+' / '+String(stats.sells))],
+ ['Resultado realizado líquido',escape(v(s.realized)+' USDT')],
+ ['Resultado em aberto estimado',escape(v(unrealized)+' USDT')],
+ ['Resultado total estimado',escape(v(net)+' USDT')],
+ ['Taxas registradas nos preenchimentos',escape(v(s.fees)+' USDT')],
+ ['Acerto dos ciclos fechados',escape(stats.winRate===null?'Sem amostra completa':percent(stats.winRate))],
+ ['Profit factor líquido',escape(stats.profitFactor===null?(stats.noLosses?'Sem perdas na amostra; razão não calculada':'Sem amostra calculável'):number(stats.profitFactor,3))],
+ ['Duração média de um ciclo fechado',escape(stats.averageMinutes===null?'Sem amostra completa':number(stats.averageMinutes,2)+' minutos')]
+ ]);
+ note.textContent='Taxas já estão incluídas no resultado líquido; não descontar novamente. Slippage integra os preços simulados e não está medido separadamente. '+(stats.complete?'Acerto e duração usam os ciclos fechados registrados, sem contar posição aberta como ganho.':'O histórico recebido está parcial ou inconsistente; acerto, profit factor e duração não são calculados.')+' Tempo ativo e comparação com comprar e manter ainda não foram medidos. Sem aprovação de rentabilidade.';
 }
