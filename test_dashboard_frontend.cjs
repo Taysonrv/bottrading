@@ -164,3 +164,12 @@ ctx.renderPortfolioPerformance({available:true,equity:null,capital:'20',realized
 assert.match(element('portfolio-performance').innerHTML,/Sem amostra completa/);
 assert.doesNotMatch(element('portfolio-performance').innerHTML,/NaN|Infinity/);
 console.log('OK: performance distinguishes missing marks, open inventory and incomplete history.');
+
+ctx.renderExternalContext({});
+assert.match(element('external-context').innerHTML,/NOT_COLLECTED/);
+ctx.renderExternalContext({sources:{alternative:{status:'OK',fetched_ms:Date.now(),data:{value:0,source_ms:Date.now()}}}});
+assert.match(element('external-context').innerHTML,/>0<\/td>/);
+ctx.renderExternalContext({sources:{geckoterminal:{status:'PARTIAL',fetched_ms:Date.now(),data:{networks:{solana:'RATE_LIMITED'},pools:[{network:'bsc',name:'<img>',liquidity_usd:10,volume_24h_usd:1}]}}}});
+assert.match(element('external-context').innerHTML,/RATE_LIMITED/);
+assert.doesNotMatch(element('external-context').innerHTML,/<img>/);
+console.log('OK: external context preserves zero, freshness and partial-provider failures.');

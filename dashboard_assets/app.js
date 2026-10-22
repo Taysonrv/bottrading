@@ -124,6 +124,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
  renderTerminal(data);
  renderLaunchHelp(data);
  renderEntryDiagnostics(data);
+ renderExternalContext(data.external_context||{});
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
@@ -472,4 +473,22 @@ function renderPortfolioPerformance(s){
  ['Duração média de um ciclo fechado',escape(stats.averageMinutes===null?'Sem amostra completa':number(stats.averageMinutes,2)+' minutos')]
  ]);
  note.textContent='Taxas já estão incluídas no resultado líquido; não descontar novamente. Slippage integra os preços simulados e não está medido separadamente. '+(stats.complete?'Acerto e duração usam os ciclos fechados registrados, sem contar posição aberta como ganho.':'O histórico recebido está parcial ou inconsistente; acerto, profit factor e duração não são calculados.')+' Tempo ativo e comparação com comprar e manter ainda não foram medidos. Sem aprovação de rentabilidade.';
+}
+
+function renderExternalContext(report){
+ const now=Date.now(),sources=report.sources||{},parts=[];
+ for(const [key,label,maxAge] of [['alternative','Alternative.me · sentimento BTC diário',172800000],['coinpaprika','CoinPaprika · preços agregados USD',1800000],['geckoterminal','GeckoTerminal · amostra de pools',1800000]]){
+   const source=sources[key]||{},d=source.data,age=now-source.fetched_ms;
+   let fresh=source.status==='OK'&&Number.isFinite(age)&&age>=0&&age<maxAge;
+   if(key==='alternative')fresh=fresh&&Number.isFinite(d?.source_ms)&&now-d.source_ms>=0&&now-d.source_ms<maxAge;
+   if(key==='coinpaprika')fresh=fresh&&Array.isArray(d?.tickers)&&d.tickers.every(t=>Number.isFinite(t.source_ms)&&now-t.source_ms>=0&&now-t.source_ms<maxAge);
+   parts.push('<h3>'+escape(label)+'</h3><p class="term-note">'+escape(fresh?'Consulta válida · '+date(source.fetched_ms/1000):(source.status||'NOT_COLLECTED')+' · sem confirmação recente')+'</p>');
+   if(!d){parts.push(empty('Dados indisponíveis; não usados pelo motor.'));continue;}
+   if(!fresh)parts.push('<p class="term-note">Último dado salvo abaixo; pode estar vencido.</p>');
+   if(key==='alternative')parts.push(table(['Índice (0–100)','Data do índice'],[[escape(d.value),escape(date(d.source_ms/1000))]]));
+   if(key==='coinpaprika')parts.push(table(['Ativo','Preço agregado USD','Atualização da fonte'],(d.tickers||[]).map(t=>[escape(t.symbol),number(t.usd_price,6),escape(date(t.source_ms/1000))])));
+   if(key==='geckoterminal'&&d.networks)parts.push('<p class="term-note">'+escape(Object.entries(d.networks).map(([n,v])=>n+': '+v).join(' · '))+'</p>');
+   if(key==='geckoterminal')parts.push(table(['Rede','Pool (amostra)','Liquidez USD','Volume 24h USD'],(d.pools||[]).map(p=>[escape(p.network),escape(p.name),number(p.liquidity_usd),number(p.volume_24h_usd)])));
+ }
+ $('external-context').innerHTML=parts.join('');
 }

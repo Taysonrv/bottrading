@@ -108,6 +108,9 @@ def main():
                 from portfolio_alerts import service
                 try:stack.enter_context(service(root))
                 except Exception:print('Alertas indisponíveis; execução PAPER preservada.',flush=True)
+            from external_context import service as context_service
+            try:stack.enter_context(context_service(root))
+            except Exception:print('Coletor de contexto já ativo ou indisponível; trading preservado.',flush=True)
             print(f'Terminal: http://127.0.0.1:{args.port}/#terminal',flush=True)
             print('Painel externo: use o código do painel já aberto.' if args.execution_only else 'Código de acesso: '+env['SPOTLAB_ACCESS_CODE'],flush=True)
             print('PAPER: '+('carteira compartilhada de 20 USDT, seis pares15m; experimento separado da EMA.' if args.engine=='portfolio' else 'BTC/1h executa sinais; seis pares15m apenas observados.')+' Não feche este terminal.',flush=True)
