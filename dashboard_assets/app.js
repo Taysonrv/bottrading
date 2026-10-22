@@ -123,6 +123,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
  renderMultipair(data.multipair||{});
  renderTerminal(data);
  renderLaunchHelp(data);
+ renderEntryDiagnostics(data);
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
@@ -404,4 +405,34 @@ function renderLaunchHelp(data){
  $('process-help').hidden=!e||$('diagnosis').hidden||running;
  $('process-command').hidden=blocked||running;
  $('process-instruction').textContent=running?'Motor atual com atividade recente. Não inicie outro processo.':blocked?'O motor está parado com trava ou prazo encerrado. Revise o motivo no diagnóstico; iniciar novamente não remove essa condição.':'Não há execução recente confirmada. Confira processos existentes e o diagnóstico antes de iniciar o motor PAPER na pasta atualizada do projeto.';
+}
+
+function entryExplanation(row,market,p,system,stopped,nowMs){
+ const stamp=market.updated_ms,age=nowMs-stamp;
+ if(!Number.isFinite(stamp)||age<0||age>=180000)return 'Radar sem leitura recente; nenhuma conclusão de entrada';
+ if(row.status!=='OK')return 'Falha nos dados públicos deste par';
+ if(stopped||p.halt)return 'Entrada bloqueada: '+(p.halt||'STOP');
+ if(p.position)return 'Carteira já possui posição em '+p.position.symbol;
+ if(p.pending)return 'Saldo reservado para '+p.pending.symbol;
+ const meanings={NO_CROSS:'Aguardando novo cruzamento EMA20 acima da EMA50',TREND_FILTER:'Cruzamento bloqueado pelo filtro EMA200',ATR_FILTER:'Cruzamento bloqueado pelo filtro de volatilidade ATR',WARMUP:'Indicadores em aquecimento',EMA_CROSS_DOWN:'Cruzamento de baixa; não é sinal de compra'};
+ if(row.action==='ENTER_LONG'){
+   const delta=nowMs-row.candle_close_ms;
+   if(!Number.isFinite(delta)||delta<0||delta>120000)return 'Sinal registrado fora da janela de entrada de 2 minutos';
+   if(system.controller?.engine!=='portfolio')return 'Sinal do radar; motor multipar não está selecionado';
+   if(!system.execution?.fresh)return 'Sinal recente, mas execução sem atualização confirmada';
+   return 'Sinal recente; reserva e filtros finais ainda precisam de confirmação no ledger';
+ }
+ return meanings[row.reason]||'Sem intenção de compra registrada: '+(row.reason||'motivo indisponível');
+}
+function renderEntryDiagnostics(data){
+ const m=data.multipair||{},p=data.portfolio||{},system=data.system||{},now=Date.now();
+ const rows=Array.isArray(m.pairs)?m.pairs:[];
+ $('entry-check-time').textContent=m.updated_ms?'Última coleta do radar: '+date(m.updated_ms/1000)+' · candles '+(m.timeframe||'não informado')+'.':'Sem coleta do radar para analisar.';
+ const n=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+ $('entry-checks').innerHTML=rows.length?table(['Par','Candle fechado','EMA20 / EMA50','Preço / EMA200','ATR observado','Situação da entrada'],rows.map(row=>{
+   const fast=n(row.ema_fast),slow=n(row.ema_slow),close=n(row.close),trend=n(row.ema_trend),atr=n(row.atr_fraction);
+   const relation=fast===null||slow===null?'Indisponível':fast>slow?'EMA20 acima':fast<slow?'EMA20 abaixo':'Médias iguais';
+   const trendState=close===null||trend===null?'Indisponível':close>trend?'Acima da EMA200':'Em/abaixo da EMA200';
+   return [escape(row.symbol),escape(date(row.candle_close_ms/1000)),escape(relation),escape(trendState),percent(atr),escape(entryExplanation(row,m,p,system,!!data.stop,now))];
+ })):empty('Sem avaliações registradas.','Dados ausentes não significam sinal de compra.');
 }

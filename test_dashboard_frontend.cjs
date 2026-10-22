@@ -142,3 +142,15 @@ element('diagnosis').hidden=true;
 ctx.renderLaunchHelp({system:{execution:{fresh:false}}});
 assert.equal(element('process-help').hidden,true);
 console.log('OK: startup guidance uses current motor and respects active/STOP state.');
+
+const enow=Date.now(),emarket={updated_ms:enow},erow={status:'OK',symbol:'BTC/USDT',reason:'NO_CROSS',action:'HOLD'};
+assert.match(ctx.entryExplanation(erow,emarket,{}, {},false,enow),/novo cruzamento/);
+assert.match(ctx.entryExplanation(erow,{updated_ms:enow-200000},{}, {},false,enow),/sem leitura recente/);
+assert.match(ctx.entryExplanation(erow,emarket,{pending:{symbol:'ETH/USDT'}},{},false,enow),/Saldo reservado para ETH/);
+assert.match(ctx.entryExplanation(erow,emarket,{halt:'DAILY_LOSS'},{},false,enow),/DAILY_LOSS/);
+assert.match(ctx.entryExplanation({...erow,action:'ENTER_LONG',candle_close_ms:enow-130000},emarket,{}, {},false,enow),/fora da janela/);
+assert.match(ctx.entryExplanation({...erow,action:'ENTER_LONG',candle_close_ms:enow},emarket,{}, {controller:{engine:'portfolio'},execution:{fresh:true}},false,enow),/precisam de confirmação/);
+ctx.renderEntryDiagnostics({multipair:{updated_ms:enow,timeframe:'15m',pairs:[{...erow,ema_fast:101,ema_slow:100,close:102,ema_trend:99,atr_fraction:.002,candle_close_ms:enow}]}});
+assert.match(element('entry-checks').innerHTML,/EMA20 acima/);
+assert.match(element('entry-checks').innerHTML,/novo cruzamento/);
+console.log('OK: entry explanations distinguish missing data, pending cash and unconfirmed signals.');

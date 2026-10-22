@@ -16,3 +16,4 @@
 .archive-links{display:flex;flex-wrap:wrap;gap:10px;padding:12px 0}
 .archive-links button{cursor:pointer;padding:12px 16px;border-radius:10px}
 @media(max-width:760px){.sidebar nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}.sidebar nav .nav{min-width:0}.sidebar nav .nav span{font-size:9px}.archive-links{display:grid;grid-template-columns:1fr}}
+#entry-checks table{table-layout:fixed;min-width:650px;width:100%}#entry-checks th,#entry-checks td{white-space:normal;line-height:1.5;overflow-wrap:anywhere}#entry-checks th:last-child,#entry-checks td:last-child{width:29%}#entry-checks th:first-child,#entry-checks td:first-child{width:12%}
