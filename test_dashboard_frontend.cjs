@@ -173,3 +173,14 @@ ctx.renderExternalContext({sources:{geckoterminal:{status:'PARTIAL',fetched_ms:D
 assert.match(element('external-context').innerHTML,/RATE_LIMITED/);
 assert.doesNotMatch(element('external-context').innerHTML,/<img>/);
 console.log('OK: external context preserves zero, freshness and partial-provider failures.');
+vm.runInContext(fs.readFileSync(__dirname+'/dashboard_assets/market.js','utf8'),ctx);
+const points=ctx.mapFeatures([{symbol:'BTC/USDT',status:'OK',action:'HOLD',ema_fast:101,ema_slow:100,ema_trend:99,close:102,atr_fraction:.002},{symbol:'BAD',status:'OK',ema_fast:NaN}]);
+assert.equal(points.length,1);assert.equal(points[0].symbol,'BTC/USDT');
+const projected=ctx.projectMap(points[0].xyz,.6,-.3);
+assert.ok(Number.isFinite(projected.x)&&Number.isFinite(projected.y));
+assert.equal(ctx.mapFeatures([]).length,0);
+const candleSvg=ctx.operationsChart({symbol:'BTCUSDT',candles:[{time:1000,open:100,high:102,low:99,close:101,closed:true},{time:1900,open:101,high:103,low:100,close:102,closed:false}]},{position:{symbol:'BTC/USDT',stop:'98',take:'104'}});
+assert.match(candleSvg,/Stop sintético/);assert.match(candleSvg,/EM FORMAÇÃO/);assert.doesNotMatch(candleSvg,/NaN|Infinity/);
+const otherPairSvg=ctx.operationsChart({symbol:'ETHUSDT',candles:[{time:1000,open:100,high:102,low:99,close:101},{time:1900,open:101,high:103,low:100,close:102}]},{position:{symbol:'BTC/USDT',stop:'98',take:'104'}});
+assert.doesNotMatch(otherPairSvg,/Stop sintético/);
+console.log('OK: 3D features use valid data and chart protection matches selected pair.');

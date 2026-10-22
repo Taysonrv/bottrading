@@ -125,6 +125,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
  renderLaunchHelp(data);
  renderEntryDiagnostics(data);
  renderExternalContext(data.external_context||{});
+ if(typeof updateOperationsVisuals==='function')updateOperationsVisuals(data);
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
