@@ -15,6 +15,7 @@ import sys
 import time
 from spot_engine.main import single_runner,save
 from system_status import build,read
+from supervisor_health import Recovery,event,previous_run
 
 ROOT=Path(__file__).resolve().parent
 
@@ -97,13 +98,25 @@ def main():
     def status(phase):
         save(folder/'system-run.json',dict(mode='PAPER',phase=phase,reason=reason,updated_ms=int(time.time()*1000),
              started_ms=int(started*1000),engine=args.engine,real_orders=0,components=[dict(name=n,pid=p.pid,exit_code=p.poll()) for n,p in children]))
+    recovery=Recovery();observed=set();specs={}
+    def journal(kind,**fields):
+        try:event(root,kind,**fields)
+        except (OSError,ValueError):print('Operational journal unavailable; execution unchanged.',flush=True)
+    def launch(name,command,cwd):
+        log=stack.enter_context((folder/('system-'+name+'.log')).open('a',encoding='utf-8'))
+        flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
+        child=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=flags)
+        journal('COMPONENT_STARTED',component=name,pid=child.pid)
+        return child
     with single_runner(folder/'system.lock'),ExitStack() as stack:
         try:
+            try:previous_run(root)
+            except (OSError,ValueError):print('Previous-run journal unavailable.',flush=True)
+            journal('SUPERVISOR_STARTED',pid=os.getpid())
             for name,command,cwd in commands(root,args.port,args.engine):
                 if args.execution_only and name=='dashboard':continue
-                log=stack.enter_context((folder/('system-'+name+'.log')).open('a',encoding='utf-8'))
-                flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
-                children.append((name,subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=flags)))
+                specs[name]=(command,cwd)
+                children.append((name,launch(name,command,cwd)))
             if args.engine=='portfolio':
                 from portfolio_alerts import service
                 try:stack.enter_context(service(root))
@@ -119,6 +132,24 @@ def main():
             print('PAPER: '+('carteira compartilhada de 20 USDT, seis pares15m; experimento separado da EMA.' if args.engine=='portfolio' else 'BTC/1h executa sinais; seis pares15m apenas observados.')+' Não feche este terminal.',flush=True)
             print('Ctrl+C aciona STOP local da sessão, preserva posição e encerra os componentes próprios.',flush=True)
             while True:
+                for index,(name,child) in enumerate(children):
+                    code=child.poll()
+                    if code is None:continue
+                    identity=(name,child.pid)
+                    if identity not in observed:
+                        observed.add(identity)
+                        last=read(session/'status.json') if name=='execution' else {}
+                        journal('COMPONENT_EXITED',component=name,pid=child.pid,exit_code=code,
+                                reason=last.get('reason','PROCESS_EXIT'))
+                    # Recover only UI/observation while execution is alive.
+                    # Engine, STOP, deadlines and risk failures require review.
+                    engine=next((p for n,p in children if n=='execution'),None)
+                    now=time.monotonic()
+                    if engine is not None and engine.poll() is None and recovery.ready(name,now):
+                        recovery.attempted(name,now)
+                        journal('RECOVERY_ATTEMPT',component=name,attempt=recovery.attempts[name])
+                        try:children[index]=(name,launch(name,*specs[name]))
+                        except OSError:journal('RECOVERY_FAILED',component=name,reason='PROCESS_START_ERROR')
                 phase,reason=lifecycle(children,session)
                 status(phase)
                 if all(child.poll() is not None for _,child in children):return
@@ -141,6 +172,7 @@ def main():
                 try:child.wait(timeout=5)
                 except subprocess.TimeoutExpired:child.kill();child.wait()
             status('STOPPED')
+            journal('SUPERVISOR_STOPPED',reason=reason)
             print('Encerrado: '+reason+'. Carteira preservada; STOP não vende posições.',flush=True)
 
 
