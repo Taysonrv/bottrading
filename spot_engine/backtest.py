@@ -16,10 +16,15 @@ from .data import load_history, interval
 from .strategy import analyze
 
 
-def run(history, settings):
+def run(history, settings, *, entry_mask=None):
     """One fixed parameter trial. Float research arithmetic, not execution ledger."""
     signals = analyze(history, settings)  # Also validates causal bar sequence.
     bars = history.candles
+    # Optional offline research filter only suppresses existing EMA entries.
+    # It cannot introduce entries, change exits or authorize the paper engine.
+    if entry_mask is not None and (not isinstance(entry_mask,(list,tuple)) or
+            len(entry_mask)!=len(bars) or any(type(x) is not bool for x in entry_mask)):
+        raise ValueError('Máscara de pesquisa inválida.')
     warmup = max(3 * settings.ema_trend, settings.atr_period + 1)
     if len(bars) <= warmup:
         raise ValueError('Histórico insuficiente após aquecimento.')
@@ -47,6 +52,8 @@ def run(history, settings):
     for i in range(warmup, len(bars)):
         b = bars[i]
         signal = signals[i - 1].action
+        if signal=='ENTER_LONG' and entry_mask is not None and not entry_mask[i-1]:
+            signal='HOLD'
         mark_open = cash + qty * b.open * (1 - slip) * (1 - fee)
         current_day = b.open_ms // 86_400_000
         if day != current_day:
