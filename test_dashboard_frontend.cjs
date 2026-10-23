@@ -190,3 +190,12 @@ ctx.renderOperationHealth({version:1,updated:Date.now()/1000-100,started:Date.no
 assert.match(element('operation-health').innerHTML,/SEM ATUALIZAÇÃO RECENTE/);
 assert.match(element('operation-health').innerHTML,/15,7 min/);
 console.log('OK: availability keeps sampling gaps unknown and marks stale monitors.');
+
+element('research').hidden=true;element('diagnosis').hidden=false;
+ctx.renderLaunchHelp({system:{execution:{fresh:true,timeframe:'15m'},controller:{engine:'portfolio'}}});
+assert.match(element('heading').textContent,/operação atual/);
+assert.doesNotMatch(element('notice').textContent,/Diagnóstico da sessão EMA/);
+ctx.renderExternalContext({sources:{geckoterminal:{status:'PARTIAL',fetched_ms:Date.now(),data:{networks:{bsc:'OK',solana:'UNAVAILABLE'},pools:[]}}}});
+assert.match(element('external-context').innerHTML,/Cobertura parcial/);
+assert.doesNotMatch(element('external-context').innerHTML,/Último dado salvo abaixo/);
+console.log('OK: current diagnostics override legacy state and partial coverage is not stale data.');

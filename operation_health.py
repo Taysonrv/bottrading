@@ -4,6 +4,7 @@ Recent heartbeats at two adjacent samples are evidence, not proof of continuous
 uptime. Long sampling gaps stay UNKNOWN; no retroactive credit is created.
 """
 import argparse
+import math
 from contextlib import contextmanager
 from pathlib import Path
 import threading
@@ -19,7 +20,8 @@ def sample(root,now=None):
     state='RECENT' if execution['fresh'] and health['market']['fresh'] else 'STOPPED' if execution['phase']=='STOPPED' else 'UNKNOWN'
     path=root/'reports/local/operation-health.json';s=read(path)
     if path.exists():
-        if s.get('version')!=1 or type(s.get('updated')) not in (int,float) or s['updated']>now:raise ValueError('INVALID_CHECKPOINT')
+        if s.get('version')!=1 or type(s.get('updated')) not in (int,float) or not math.isfinite(s['updated']) or not 0<=s['updated']<=now:raise ValueError('INVALID_CHECKPOINT')
+        if type(s.get('started')) not in (int,float) or not math.isfinite(s['started']) or not 0<=s['started']<=s['updated'] or s.get('state') not in ('RECENT','STOPPED','UNKNOWN') or not isinstance(s.get('transitions'),list):raise ValueError('INVALID_CHECKPOINT')
         for key in ('recent_seconds','stopped_seconds','unknown_seconds'):
             if type(s.get(key)) not in (int,float) or not 0<=s[key]<1e12:raise ValueError('INVALID_CHECKPOINT')
         delta=now-s['updated']

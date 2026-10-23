@@ -28,3 +28,13 @@ class AvailabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp,patch('operation_health.build',return_value=health()):
             sample(tmp,1000)
             with self.assertRaises(ValueError):sample(tmp,999)
+
+    def test_nonfinite_checkpoint_is_rejected_without_reset(self):
+        import json
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp,patch('operation_health.build',return_value=health()):
+            sample(tmp,1000);path=Path(tmp)/'reports/local/operation-health.json'
+            state=json.loads(path.read_text());state['updated']=float('nan')
+            path.write_text(json.dumps(state),encoding='utf-8');before=path.read_bytes()
+            with self.assertRaises(ValueError):sample(tmp,1015)
+            self.assertEqual(path.read_bytes(),before)

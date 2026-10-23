@@ -56,3 +56,26 @@ class PortfolioRunTests(unittest.TestCase):
         self.assertIn('spot_engine.portfolio_run',rows[0][1])
         self.assertNotIn('spot_engine.main',rows[0][1])
         self.assertNotIn('spot_engine.scanner',rows[0][1])
+
+    def test_invalid_equity_does_not_break_wallet_projection(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            session=Session(tmp,None);session.broker.initialize(1000)
+            session.publish('RUNNING','TEST',dict(end_ms=9999999999999))
+            path=session.folder/'status.json';report=json.loads(path.read_text())
+            for bad in ('NaN','Infinity','-1','bad'):
+                report['equity']=bad;path.write_text(json.dumps(report),encoding='utf-8')
+                data=portfolio_view.load(tmp)
+                self.assertTrue(data['available']);self.assertIsNone(data['equity']);self.assertIsNone(data['drawdown'])
+
+    def test_projection_reconciles_with_execution_decimal_precision(self):
+        from decimal import getcontext
+        from spot_engine.portfolio import Portfolio
+        original=Portfolio._reconcile
+        def check(broker,state):
+            self.assertEqual(getcontext().prec,80)
+            return original(broker,state)
+        with tempfile.TemporaryDirectory() as tmp:
+            session=Session(tmp,None);session.broker.initialize(1000)
+            with patch('portfolio_view.Portfolio._reconcile',new=check):
+                self.assertTrue(portfolio_view.load(tmp)['available'])

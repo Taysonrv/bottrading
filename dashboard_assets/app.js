@@ -406,6 +406,7 @@ function renderLaunchHelp(data){
  const running=!!(e?.fresh||c.fresh);
  if(e&&!$('research').hidden){$('connection').textContent=e.fresh?'● Bot ativo · pesquisas históricas':'Pesquisas históricas · confira Bot ao vivo';$('updated').textContent='Relatórios de pesquisa com datas próprias; não representam o saldo do motor ativo.';$('notice').hidden=false;$('notice').textContent='Pesquisas e experimentos não iniciam o bot nem autorizam dinheiro real. Acompanhe a execução atual em Bot ao vivo.';}
  const blocked=!!(data.stop||p.halt||['STOP','DEADLINE','DRAWDOWN','DAILY_LOSS'].includes(e?.reason));
+ if(e&&!$('diagnosis').hidden){$('heading').textContent='Diagnóstico da operação atual.';$('connection').textContent=e.fresh?'● Motor atual · dados recentes':'○ Motor atual · confira atualização';$('updated').textContent='Motor '+(c.engine||'não identificado')+' · '+(e.timeframe||'—')+' · relatórios antigos identificados abaixo.';$('notice').hidden=false;$('notice').textContent=blocked?'Motor atual com trava ou prazo encerrado. Confira o motivo antes de retomar.':'Saúde da operação atual. Sessões antigas abaixo não representam o saldo ou o estado do motor ativo.';}
  $('process-help').hidden=!e||$('diagnosis').hidden||running;
  $('process-command').hidden=blocked||running;
  $('process-instruction').textContent=running?'Motor atual com atividade recente. Não inicie outro processo.':blocked?'O motor está parado com trava ou prazo encerrado. Revise o motivo no diagnóstico; iniciar novamente não remove essa condição.':'Não há execução recente confirmada. Confira processos existentes e o diagnóstico antes de iniciar o motor PAPER na pasta atualizada do projeto.';
@@ -481,11 +482,13 @@ function renderExternalContext(report){
  const now=Date.now(),sources=report.sources||{},parts=[];
  for(const [key,label,maxAge] of [['alternative','Alternative.me · sentimento BTC diário',172800000],['coinpaprika','CoinPaprika · preços agregados USD',1800000],['geckoterminal','GeckoTerminal · amostra de pools',1800000]]){
    const source=sources[key]||{},d=source.data,age=now-source.fetched_ms;
-   let fresh=source.status==='OK'&&Number.isFinite(age)&&age>=0&&age<maxAge;
+   const partial=key==='geckoterminal'&&source.status==='PARTIAL';
+   let fresh=(source.status==='OK'||partial)&&Number.isFinite(age)&&age>=0&&age<maxAge;
    if(key==='alternative')fresh=fresh&&Number.isFinite(d?.source_ms)&&now-d.source_ms>=0&&now-d.source_ms<maxAge;
-   if(key==='coinpaprika')fresh=fresh&&Array.isArray(d?.tickers)&&d.tickers.every(t=>Number.isFinite(t.source_ms)&&now-t.source_ms>=0&&now-t.source_ms<maxAge);
-   parts.push('<h3>'+escape(label)+'</h3><p class="term-note">'+escape(fresh?'Consulta válida · '+date(source.fetched_ms/1000):(source.status||'NOT_COLLECTED')+' · sem confirmação recente')+'</p>');
+   if(key==='coinpaprika')fresh=fresh&&Array.isArray(d?.tickers)&&d.tickers.length===6&&d.tickers.every(t=>Number.isFinite(t.source_ms)&&now-t.source_ms>=0&&now-t.source_ms<maxAge);
+   parts.push('<h3>'+escape(label)+'</h3><p class="term-note">'+escape(fresh?(partial?'Cobertura parcial · consulta ':'Consulta válida · ')+date(source.fetched_ms/1000):(source.status||'NOT_COLLECTED')+' · sem confirmação recente')+'</p>');
    if(!d){parts.push(empty('Dados indisponíveis; não usados pelo motor.'));continue;}
+   if(fresh&&partial)parts.push('<p class="term-note">Resultados recentes somente para as redes OK abaixo. Redes indisponíveis não têm dados confirmados.</p>');
    if(!fresh)parts.push('<p class="term-note">Último dado salvo abaixo; pode estar vencido.</p>');
    if(key==='alternative')parts.push(table(['Índice (0–100)','Data do índice'],[[escape(d.value),escape(date(d.source_ms/1000))]]));
    if(key==='coinpaprika')parts.push(table(['Ativo','Preço agregado USD','Atualização da fonte'],(d.tickers||[]).map(t=>[escape(t.symbol),number(t.usd_price,6),escape(date(t.source_ms/1000))])));
