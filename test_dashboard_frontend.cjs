@@ -227,3 +227,12 @@ premiumData.multipair.updated_ms=Date.now()-400000;
 ctx.renderPremium(premiumData);
 assert.match(element('premium-heatmap').innerHTML,/Sem confirmação/);
 console.log('OK: premium panels do not invent metrics, duplicate candles or stale signals.');
+
+assert.ok(perf.averageWin>0);assert.equal(perf.maxWinStreak,1);assert.equal(perf.maxLossStreak,0);assert.equal(perf.byPair[0].count,1);
+assert.equal(ctx.portfolioPerformance({fills:[...perfFills,{...perfFills[0],time_ms:0}],buy_fills:2,sell_fills:1}).complete,false);
+const csv=ctx.journalCsv([{time:1000,kind:'Ordem',symbol:'=FORMULA()',side:'BUY',state:'NEW',reason:'a,"b',price:'1',quantity:'2',fee:null}]);
+assert.match(csv,/1970-01-01T00:00:01.000Z/);assert.match(csv,/'=FORMULA/);assert.match(csv,/a,""b/);
+element('trade-search').value='ETH';
+assert.equal(ctx.filteredJournal({orders:[{symbol:'BTC/USDT'},{symbol:'ETH/USDT'}]}).length,1);
+element('trade-search').value='';
+console.log('OK: journal filtering, CSV escaping and complete-history statistics.');

@@ -9,8 +9,32 @@ const empty = (title, detail='') => `<div class="empty"><strong>${escape(title)}
 // Premium views consume the same authenticated /api/status snapshot as the
 // trading panels. They never generate orders or synthetic performance values.
 const premiumHistory=new Map();
+let latestPortfolioRecord={};
+function journalRows(p){
+ const fills=(p.fills||[]).map(f=>({time:f.time_ms,kind:'Preenchimento',symbol:f.symbol,side:f.side,state:'FILLED',reason:f.reason||'',price:f.price,quantity:f.quantity,fee:f.fee}));
+ const orders=(p.orders||[]).map(o=>({time:o.created_ms,kind:'Ordem',symbol:o.symbol,side:o.side,state:o.status,reason:o.reason||'',price:o.limit,quantity:o.quantity,fee:null}));
+ return [...fills,...orders].sort((a,b)=>(b.time||0)-(a.time||0));
+}
+function journalCsv(rows){
+ const cell=value=>{
+   let s=String(value??'');
+   if(/^[=+\-@\t\r\n]/.test(s))s="'"+s;
+   return '"'+s.replace(/"/g,'""')+'"';
+ };
+ return '\uFEFF'+[['timestamp_utc','tipo','par','lado','estado','motivo','preco','quantidade','taxa'],...rows.map(r=>[Number.isFinite(r.time)?new Date(r.time).toISOString():'',r.kind,r.symbol,r.side,r.state,r.reason,r.price,r.quantity,r.fee])].map(r=>r.map(cell).join(',')).join('\r\n');
+}
+function filteredJournal(p){
+ const query=String($('trade-search').value||'').trim().toLowerCase();
+ return journalRows(p).filter(r=>[r.symbol,r.side,r.kind,r.state,r.reason].join(' ').toLowerCase().includes(query));
+}
+function renderTradeJournal(p){
+ latestPortfolioRecord=p;
+ const rows=filteredJournal(p);
+ $('trade-journal').innerHTML=rows.length?table(['Horário','Tipo','Par','Lado','Estado','Motivo','Taxa'],rows.slice(0,50).map(r=>[escape(date(r.time/1000)),escape(r.kind),escape(r.symbol),escape(r.side),escape(r.state),escape(r.reason),r.fee===null?'—':escape(r.fee)])):empty('Nenhum registro para este filtro.');
+}
 function renderPremium(data){
  const p=data.portfolio||{},m=data.multipair||{},stats=portfolioPerformance(p);
+ renderTradeJournal(p);
  const numeric=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v):NaN;
  const metric=(label,value,note)=>'<article class="term-stat"><p>'+escape(label)+'</p><strong>'+escape(value)+'</strong><small>'+escape(note)+'</small></article>';
  $('premium-metrics').innerHTML=[metric('Acerto dos ciclos',percent(stats.winRate??NaN),'Somente ciclos fechados completos'),metric('Posições abertas / ciclos fechados',(p.available?(p.position?'1':'0'):'—')+' / '+(stats.closed??'—'),'Uma posição simultânea no máximo'),metric('PnL do dia','—','Ainda sem série diária reconciliada'),metric('Sharpe / drawdown máximo','—','Série de retornos ainda indisponível')].join('');
@@ -43,7 +67,7 @@ function renderPremium(data){
  })):empty('Aguardando o radar de seis pares.');
 }
 function premiumClock(){
- $('premium-clock').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'})+' · Brasília';
+ const now=new Date();$('premium-clock').textContent=now.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'})+' BRT · '+now.toLocaleTimeString('pt-BR',{timeZone:'UTC'})+' UTC';
 }
 premiumClock();setInterval(premiumClock,1000);
 $('sidebar-collapse').addEventListener('click',()=>{
@@ -496,16 +520,22 @@ function renderEntryDiagnostics(data){
 function portfolioPerformance(s){
  const fills=Array.isArray(s.fills)?s.fills:[],buys=s.buy_fills??fills.filter(f=>f.side==='BUY').length,sells=s.sell_fills??fills.filter(f=>f.side==='SELL').length;
  const complete=Number.isInteger(buys)&&Number.isInteger(sells)&&buys+sells===fills.length;
- let position=null,valid=complete;const trades=[];
+ let position=null,valid=complete,lastTime=-1;const trades=[];
  if(complete)for(const f of fills){
    const q=Number(f.quantity),price=Number(f.price),fee=Number(f.fee),t=f.time_ms;
-   if(![q,price,fee,t].every(Number.isFinite)||q<=0||price<=0||fee<0){valid=false;break;}
+   if(![q,price,fee,t].every(Number.isFinite)||q<=0||price<=0||fee<0||t<0||t<lastTime||f.fee===null){valid=false;break;}
+   lastTime=t;
    if(f.side==='BUY'&&!position)position={symbol:f.symbol,quantity:q,cost:q*price+fee,time:t};
-   else if(f.side==='SELL'&&position&&position.symbol===f.symbol&&q===position.quantity&&t>=position.time){trades.push({net:q*price-fee-position.cost,minutes:(t-position.time)/60000});position=null;}
+   else if(f.side==='SELL'&&position&&position.symbol===f.symbol&&q===position.quantity&&t>=position.time){trades.push({symbol:f.symbol,net:q*price-fee-position.cost,minutes:(t-position.time)/60000});position=null;}
    else{valid=false;break;}
  }
  const gains=trades.reduce((a,t)=>a+Math.max(0,t.net),0),losses=trades.reduce((a,t)=>a+Math.max(0,-t.net),0);
- return {buys,sells,complete:valid,closed:valid?trades.length:null,winRate:valid&&trades.length?trades.filter(t=>t.net>0).length/trades.length:null,
+ const wins=trades.filter(t=>t.net>0),losers=trades.filter(t=>t.net<0);
+ let currentWin=0,currentLoss=0,maxWin=0,maxLoss=0;
+ for(const t of trades){currentWin=t.net>0?currentWin+1:0;currentLoss=t.net<0?currentLoss+1:0;maxWin=Math.max(maxWin,currentWin);maxLoss=Math.max(maxLoss,currentLoss);}
+ return {averageWin:valid&&wins.length?gains/wins.length:null,averageLoss:valid&&losers.length?-losses/losers.length:null,maxWinStreak:valid&&trades.length?maxWin:null,maxLossStreak:valid&&trades.length?maxLoss:null,
+ byPair:valid?Array.from(new Set(trades.map(t=>t.symbol))).map(symbol=>{const rows=trades.filter(t=>t.symbol===symbol);return {symbol,count:rows.length,net:rows.reduce((a,t)=>a+t.net,0),winRate:rows.filter(t=>t.net>0).length/rows.length};}):[],
+ buys,sells,complete:valid,closed:valid?trades.length:null,winRate:valid&&trades.length?trades.filter(t=>t.net>0).length/trades.length:null,
    profitFactor:valid&&losses>0?gains/losses:null,noLosses:valid&&trades.length>0&&losses===0,
    averageMinutes:valid&&trades.length?trades.reduce((a,t)=>a+t.minutes,0)/trades.length:null};
 }
@@ -524,7 +554,10 @@ function renderPortfolioPerformance(s){
  ['Taxas registradas nos preenchimentos',escape(v(s.fees)+' USDT')],
  ['Acerto dos ciclos fechados',escape(stats.winRate===null?'Sem amostra completa':percent(stats.winRate))],
  ['Profit factor líquido',escape(stats.profitFactor===null?(stats.noLosses?'Sem perdas na amostra; razão não calculada':'Sem amostra calculável'):number(stats.profitFactor,3))],
- ['Duração média de um ciclo fechado',escape(stats.averageMinutes===null?'Sem amostra completa':number(stats.averageMinutes,2)+' minutos')]
+ ['Duração média de um ciclo fechado',escape(stats.averageMinutes===null?'Sem amostra completa':number(stats.averageMinutes,2)+' minutos')],
+ ['Média de ganho / perda líquida',escape(v(stats.averageWin)+' / '+v(stats.averageLoss)+' USDT')],
+ ['Maior sequência de ganhos / perdas',escape((stats.maxWinStreak??'—')+' / '+(stats.maxLossStreak??'—'))],
+ ...stats.byPair.map(p=>['Ciclos '+p.symbol,escape(p.count+' · líquido '+v(p.net)+' USDT · acerto '+percent(p.winRate))])
  ]);
  note.textContent='Taxas já estão incluídas no resultado líquido; não descontar novamente. Slippage integra os preços simulados e não está medido separadamente. '+(stats.complete?'Acerto e duração usam os ciclos fechados registrados, sem contar posição aberta como ganho.':'O histórico recebido está parcial ou inconsistente; acerto, profit factor e duração não são calculados.')+' Tempo ativo e comparação com comprar e manter ainda não foram medidos. Sem aprovação de rentabilidade.';
 }
@@ -560,3 +593,28 @@ function renderOperationHealth(s){
  const duration=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?number(v/60,1)+' min':'—';
  $('operation-health').innerHTML='<p class="panel-note">'+escape(valid?'Monitor com leitura recente':'MONITOR SEM ATUALIZAÇÃO RECENTE')+' · início '+escape(date(s.started))+'</p>'+table(['Classificação dos intervalos','Duração estimada'],[['Sinais recentes nas amostras',duration(s.recent_seconds)],['Motor reportado como parado',duration(s.stopped_seconds)],['Sem evidência suficiente',duration(s.unknown_seconds)],['Última lacuna de coleta',duration(s.last_gap_seconds)]])+'<p class="panel-note">Último estado observado: '+escape(s.state)+' · '+escape(date(s.updated))+'. Não é uma garantia de funcionamento 24/7.</p>';
 }
+
+// [CONECTAR: API interna] All journal rows come from the existing wallet snapshot.
+$('trade-search').addEventListener('input',()=>renderTradeJournal(latestPortfolioRecord));
+$('trade-export').addEventListener('click',()=>{
+ const url=URL.createObjectURL(new Blob([journalCsv(filteredJournal(latestPortfolioRecord))],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='spotlab-paper-recorte.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+function setupWorkspace(){
+ const applyTheme=value=>{const theme=['dark','light','matrix'].includes(value)?value:'dark';$('app').dataset.theme=theme;$('theme-select').value=theme;return theme;};
+ const applyWorkspace=value=>{const workspace=['overview','risk','pairs','diagnosis'].includes(value)?value:'overview';$('workspace-select').value=workspace;$('terminal').dataset.workspace=workspace;if(workspace==='diagnosis')document.querySelector('[data-view="diagnosis"]').click();return workspace;};
+ $('theme-select').addEventListener('change',()=>{const theme=applyTheme($('theme-select').value);try{localStorage.setItem('spotlab-theme',theme);}catch{}});
+ $('workspace-select').addEventListener('change',()=>{const value=applyWorkspace($('workspace-select').value);try{localStorage.setItem('spotlab-workspace',value);}catch{}});
+ try{applyTheme(localStorage.getItem('spotlab-theme'));const w=localStorage.getItem('spotlab-workspace');if(w&&w!=='diagnosis')applyWorkspace(w);}catch{}
+ let panel=null,marker=null;
+ const restore=()=>{if(panel&&marker){marker.replaceWith(panel);panel=null;marker=null;}};
+ $('focus-close').addEventListener('click',()=>$('panel-focus').close());
+ $('panel-focus').addEventListener('close',restore);
+ for(const article of document.querySelectorAll('#terminal > article,#operations-visuals > article,#diagnosis > article')){
+   const title=article.querySelector('h2');if(!title)continue;
+   const button=document.createElement('button');button.className='panel-focus-button secondary';button.textContent='⤢ Ampliar';button.setAttribute('aria-label','Ampliar '+title.textContent);
+   button.addEventListener('click',()=>{if(panel)return;panel=article;marker=document.createComment('panel workspace position');article.replaceWith(marker);$('focus-content').append(article);$('panel-focus').showModal();});
+   title.after(button);
+ }
+}
+if(typeof window!=='undefined')setupWorkspace();
