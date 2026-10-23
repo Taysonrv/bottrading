@@ -236,3 +236,14 @@ element('trade-search').value='ETH';
 assert.equal(ctx.filteredJournal({orders:[{symbol:'BTC/USDT'},{symbol:'ETH/USDT'}]}).length,1);
 element('trade-search').value='';
 console.log('OK: journal filtering, CSV escaping and complete-history statistics.');
+
+const decisionData={system:{controller:{engine:'portfolio'},execution:{end_ms:Date.now()+60000}},portfolio:{available:true,fresh:true,updated:Date.now()/1000,orders:[{created_ms:1000,symbol:'BNB/USDT',status:'CANCELED',reason:'EXPIRED'}]},multipair:{updated_ms:Date.now(),pairs:['BTC','ETH','SOL','BNB','XRP','DOGE'].map(x=>({symbol:x+'/USDT',status:'OK',action:'HOLD'}))}};
+let decision=ctx.decisionSnapshot(decisionData);assert.equal(decision.state,'WAITING');assert.equal(decision.counts.canceled,1);assert.equal(decision.intentions,0);
+assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{...decisionData.portfolio,pending:{symbol:'BNB/USDT'}}}).state,'ENTRY_PENDING');
+assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{...decisionData.portfolio,position:{exit_request:{reason:'STOP_LOSS'}}}}).state,'EXIT_PENDING');
+assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{...decisionData.portfolio,reason:'STOP',fresh:false}}).state,'STOP');
+assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{...decisionData.portfolio,updated:Date.now()/1000-120}}).state,'STALE');
+assert.equal(ctx.decisionSnapshot({...decisionData,multipair:{...decisionData.multipair,pairs:[]}}).intentions,null);
+assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{available:false}}).counts,null);
+ctx.renderDecisionAudit(decisionData);assert.match(element('decision-orders').innerHTML,/Expirada sem preenchimento/);assert.doesNotMatch(element('decision-orders').innerHTML,/liquidez insuficiente/);
+console.log('OK: decision audit distinguishes expired, pending, stale, STOP and incomplete radar.');

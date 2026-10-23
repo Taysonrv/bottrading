@@ -505,6 +505,7 @@ function entryExplanation(row,market,p,system,stopped,nowMs){
  return meanings[row.reason]||'Sem intenção de compra registrada: '+(row.reason||'motivo indisponível');
 }
 function renderEntryDiagnostics(data){
+ renderDecisionAudit(data);
  const m=data.multipair||{},p=data.portfolio||{},system=data.system||{},now=Date.now();
  const rows=Array.isArray(m.pairs)?m.pairs:[];
  $('entry-check-time').textContent=m.updated_ms?'Última coleta do radar: '+date(m.updated_ms/1000)+' · candles '+(m.timeframe||'não informado')+'.':'Sem coleta do radar para analisar.';
@@ -515,6 +516,43 @@ function renderEntryDiagnostics(data){
    const trendState=close===null||trend===null?'Indisponível':close>trend?'Acima da EMA200':'Em/abaixo da EMA200';
    return [escape(row.symbol),escape(date(row.candle_close_ms/1000)),escape(relation),escape(trendState),percent(atr),escape(entryExplanation(row,m,p,system,!!data.stop,now))];
  })):empty('Sem avaliações registradas.','Dados ausentes não significam sinal de compra.');
+}
+
+// Read-only operational explanation. A radar intention is never an order.
+function decisionSnapshot(data,now=Date.now()){
+ const p=data.portfolio||{},system=data.system||{},m=data.multipair||{};
+ const orders=Array.isArray(p.orders)?p.orders:[];
+ const age=typeof p.updated==='number'&&Number.isFinite(p.updated)?now-p.updated*1000:NaN;
+ const marketAge=typeof m.updated_ms==='number'&&Number.isFinite(m.updated_ms)?now-m.updated_ms:NaN;
+ const fresh=p.fresh===true&&age>=0&&age<60000;
+ const pairs=Array.isArray(m.pairs)?m.pairs:[];
+ const radarFresh=marketAge>=0&&marketAge<180000&&pairs.length===6&&
+   pairs.every(r=>r.status==='OK')&&new Set(pairs.map(r=>r.symbol)).size===6;
+ let state='UNKNOWN',message='Sem carteira reconciliada disponível.';
+ if(system.controller?.engine!=='portfolio'){message='O motor multipar não está selecionado.';}
+ else if(data.stop||p.halt==='STOP'||p.reason==='STOP'){state='STOP';message='STOP acionado: novas ordens bloqueadas. Posições não são liquidadas.';}
+ else if(p.available){
+   const end=system.execution?.end_ms;
+   if(Number.isSafeInteger(end)&&now>=end){state='ENDED';message='Prazo da sessão encerrado; saldo e prazo não reiniciados.';}
+   else if(p.halt){state='HALTED';message='Trava registrada: '+p.halt+'. Revise a causa antes de retomar.';}
+   else if(!fresh){state='STALE';message='Sem atualização recente da carteira; não é possível confirmar execução atual.';}
+   else if(p.position?.exit_request){state='EXIT_PENDING';message='Saída sintética solicitada; venda ainda depende de cotação posterior, filtros e liquidez.';}
+   else if(p.pending){state='ENTRY_PENDING';message='Reserva de entrada registrada; ainda não confirma uma compra preenchida.';}
+   else if(p.position){state='POSITION_OPEN';message='Posição registrada. Stop e alvo são sintéticos e dependem do processo ativo.';}
+   else{state='WAITING';message='Em caixa, sem ordem pendente. Consulte as avaliações atuais de cada par abaixo.';}
+ }
+ const counts=p.available?{orders:orders.length,canceled:orders.filter(o=>o.status==='CANCELED').length,
+   rejected:orders.filter(o=>o.status==='REJECTED').length,filled:orders.filter(o=>o.status==='FILLED').length}:null;
+ const intentions=radarFresh&&Array.isArray(m.pairs)?m.pairs.filter(r=>r.status==='OK'&&r.action==='ENTER_LONG').length:null;
+ return {state,message,fresh,counts,intentions,orders:p.available?orders:[]};
+}
+function renderDecisionAudit(data){
+ const s=decisionSnapshot(data),c=s.counts;
+ $('decision-status').textContent=s.message;
+ const card=(label,value)=>'<div class="operation-card"><span>'+escape(label)+'</span><strong>'+escape(value??'—')+'</strong></div>';
+ $('decision-counts').innerHTML=card('Intenções atuais do radar',s.intentions)+card('Ordens no recorte',c?.orders)+card('Canceladas no recorte',c?.canceled)+card('Rejeitadas no recorte',c?.rejected);
+ const meanings={EXPIRED:'Expirada sem preenchimento',SIGNAL_EXIT:'Cancelada por sinal de saída',STOP:'Cancelada por STOP',ENTRY_BELOW_STOP:'Entrada abaixo do stop',RESERVED:'Caixa reservado',FILLED:'Preenchida'};
+ $('decision-orders').innerHTML=s.orders.length?table(['Criação da ordem','Par','Estado registrado','Motivo registrado'],s.orders.slice(-10).reverse().map(o=>[escape(date(o.created_ms/1000)),escape(o.symbol),escape(o.status),escape(meanings[o.reason]||o.reason||'Não informado')])):empty(c?'Nenhuma ordem no recorte recebido.':'Histórico indisponível.');
 }
 
 function portfolioPerformance(s){
