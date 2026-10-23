@@ -199,3 +199,16 @@ ctx.renderExternalContext({sources:{geckoterminal:{status:'PARTIAL',fetched_ms:D
 assert.match(element('external-context').innerHTML,/Cobertura parcial/);
 assert.doesNotMatch(element('external-context').innerHTML,/Último dado salvo abaixo/);
 console.log('OK: current diagnostics override legacy state and partial coverage is not stale data.');
+
+ctx.renderSystemIntegration({controller:{engine:'portfolio',fresh:false,age_seconds:125},execution:{fresh:true,symbol:'SHARED_6_PAIRS',timeframe:'15m'},market:{fresh:false,age_seconds:null}});
+assert.match(element('operation-summary').innerHTML,/Sem confirma/);
+assert.match(element('operation-summary').innerHTML,/indispon/);
+assert.match(element('operation-summary').innerHTML,/PAPER/);
+ctx.renderPortfolio({available:true,fresh:true,capital:'20',cash:'14',position:{symbol:'BTC/USDT',quantity:'.0001',stop:'50000',take:'60000',exit_request:{reason:'STOP_LOSS'}}});
+assert.match(element('portfolio-position').innerHTML,/STOP_LOSS/);
+assert.match(element('portfolio-position').innerHTML,/sint/);
+console.log('OK: operational summary separates stale services and displays requested synthetic exits.');
+
+ctx.renderTerminal({system:{controller:{engine:'portfolio'}},portfolio:{available:true,fresh:true,cash:'14',equity:'20',position:{symbol:'BTC/USDT',quantity:'.0001',exit_request:{reason:'STOP_LOSS'}}},multipair:{}});
+assert.match(element('term-pipeline').innerHTML,/Saída sintética solicitada/);
+console.log('OK: pending synthetic exit is visible in the execution pipeline.');

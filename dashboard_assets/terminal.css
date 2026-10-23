@@ -47,3 +47,23 @@ button,input,select{font:inherit}button,a,input,select,summary{outline-offset:4p
 
 /* Keep historical sessions distinct from the current operation. */
 .legacy-diagnostics{margin-top:24px;border:1px solid #334164;border-radius:16px;padding:16px;background:#10182b}.legacy-diagnostics>summary{cursor:pointer;font-size:14px;color:#c4d3ed;padding:8px;font-weight:600}.legacy-diagnostics>summary:focus-visible{outline:2px solid #4de6ef;outline-offset:4px}.legacy-diagnostics[open]>summary{margin-bottom:16px}
+
+/* Operational hierarchy: readable state first, details and experiments below. */
+.operation-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0 24px}
+.operation-card{min-width:0;padding:18px;border:1px solid #344665;border-radius:14px;background:linear-gradient(145deg,#192941,#111c30);border-top:3px solid #7ddacb}
+.operation-card>span{display:block;font-size:12px;font-weight:650;letter-spacing:.5px;color:#bfcde2;margin-bottom:10px}
+.operation-card strong{display:block;font-size:16px;line-height:1.45;color:#e8f4ff;overflow-wrap:anywhere}
+.operation-card small{display:block;font-size:12px;line-height:1.6;color:#afc1dc;margin-top:9px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.operation-card.is-stale{border-top-color:#efbc75;background:linear-gradient(145deg,#30283a,#181e2e)}
+.operation-card.is-stale strong{color:#ffda9e}
+.terminal #portfolio-block h3{font-size:16px;margin:26px 0 14px;color:#dbe8ff}
+.terminal .table-wrap{max-width:100%;overflow-x:auto;margin:12px 0}
+.terminal table td{vertical-align:top;font-variant-numeric:tabular-nums}
+.terminal .term-banner{background:radial-gradient(ellipse at top right,#34536a55,transparent 65%),linear-gradient(120deg,#1c2c49,#161e35);border-color:#435b80}
+.terminal .term-mode{color:#9bf6db;background:#123d37;border:1px solid #387669;border-radius:9px;padding:10px 12px;font-size:12px;letter-spacing:.5px}
+.terminal-toolbar button{min-height:44px;transition:background .15s,border-color .15s}
+.terminal-toolbar button:hover{background:#30476a;border-color:#91b4e8}
+.app-shell button:focus-visible,.app-shell select:focus-visible,.app-shell summary:focus-visible{outline:2px solid #71e6f1;outline-offset:3px}
+@media(max-width:1100px){.operation-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.operation-card{padding:14px}.operation-card strong{font-size:14px}.operation-summary{gap:10px}.operation-card small{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.terminal-toolbar button{transition:none}}
