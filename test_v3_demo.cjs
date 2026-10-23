@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const html=fs.readFileSync(__dirname+'/exports/spotlab-v3-demo.html','utf8');
+assert.doesNotMatch(html,/<(?:script[^>]+src|link[^>]+stylesheet)/i);
+const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];assert.equal(scripts.length,1);
+assert.doesNotMatch(scripts[0][1],/\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|sendBeacon/);
+const elements=new Map(),defaults={'symbol':'BTC/USDT','position-filter':'all','log-filter':'all','risk-slider':'1','exposure-slider':'40'};
+const drawing=new Proxy({createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>k in o?o[k]:(()=>{})});
+function element(id){if(!elements.has(id))elements.set(id,{value:defaults[id]||'',textContent:'',innerHTML:'',clientWidth:640,classList:{toggle(){}},getContext:()=>drawing,addEventListener(){},setAttribute(){},showModal(){this.open=true;},close(){this.open=false;}});return elements.get(id);}
+const context={document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){}},console,setInterval:()=>0,addEventListener(){},performance:{now:()=>1},devicePixelRatio:1,innerHeight:900};
+vm.createContext(context);vm.runInContext(scripts[0][1],context);
+const read=s=>vm.runInContext(s,context);
+assert.equal(read('state.pairs.length'),6);assert.equal(read('state.pairs.filter(p=>p.position).length'),2);
+assert.match(element('metrics').innerHTML,/MOCK/);assert.match(element('pipeline').innerHTML,/ZERO ORDENS REAIS/);
+assert.equal(read('state.initial'),10000);assert.equal(read('state.trades.length'),0);
+element('confirm-kill').onclick();
+assert.equal(read('state.paused'),true);assert.equal(read('state.pairs.filter(p=>p.position).length'),0);
+assert.equal(read('state.trades.length'),2);
+assert.ok(Math.abs(read('state.cash-state.initial-state.realized'))<1e-8);
+const cash=read('state.cash');read('tick()');assert.equal(read('state.cash'),cash);
+element('reset').onclick();assert.equal(read('state.trades.length'),0);assert.equal(read('state.paused'),false);
+console.log('OK: standalone v3 demo, no network, six mock pairs, local kill/reset and cash reconciliation.');
