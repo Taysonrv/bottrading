@@ -6,6 +6,77 @@ from pathlib import Path
 import time
 
 
+def shared_review(root,now=None):
+    """Read-only review of the complete shared ledger and sampled services.
+
+    Snapshot sources are read separately, not a cross-process transaction.
+    Never sums legacy wallets, treats unknown intervals as uptime, or approves.
+    """
+    from collections import Counter
+    from decimal import Decimal,DecimalException,localcontext
+    import sqlite3
+    from portfolio_alerts import ledger
+    from portfolio_view import load
+    from system_status import build as operational,read
+    root=Path(root);now=time.time() if now is None else now
+    if not finite(now) or now<0:raise ValueError('INVALID_REVIEW_TIME')
+    issues=[];s=None
+    try:s=ledger(root)
+    except (OSError,ValueError,TypeError,KeyError,sqlite3.Error,DecimalException):
+        issues.append('Carteira completa indisponível ou com integridade/identidade inválida.')
+    scope=operational(root,now)
+    if scope['controller']['engine']!='portfolio':issues.append('Motor compartilhado não está selecionado no supervisor.')
+    for name in ('controller','execution','market'):
+        if not scope[name]['fresh']:issues.append('Sem atualização confirmada: '+name+'.')
+    plan=read(root/'reports/local/portfolio/plan.json')
+    end=plan.get('end_ms');valid_end=type(end) is int and 0<end<=253402300799000
+    expired=now*1000>=end if valid_end else None
+    if not valid_end:issues.append('Prazo da sessão indisponível.')
+    elif expired:issues.append('Prazo da sessão encerrado; relatório não renova a sessão.')
+    stopped=(root/'STOP').exists() or (root/'reports/local/portfolio/STOP').exists()
+    if stopped:issues.append('STOP presente; este relatório não remove a trava.')
+    wallet=None
+    if s is not None:
+        view=load(root,now);same=view.get('available') and all(view.get(k)==s[k] for k in ('cash','fees','realized','position','pending'))
+        # Cash is known without a quote if no inventory is held. With inventory,
+        # accept only the same reconciled snapshot's recent mark.
+        equity=s['cash'] if s['position'] is None else view.get('equity') if same and view.get('fresh') else None
+        with localcontext() as context:
+            context.prec=80
+            pnl=str(Decimal(equity)-Decimal('20')) if equity is not None else None
+        wallet=dict(cash=s['cash'],fees=s['fees'],realized=s['realized'],equity=equity,
+            total_pnl=pnl,
+            position_open=s['position'] is not None,entry_pending=s['pending'] is not None,
+            halt=s['halt'],buy_fills=sum(f['side']=='BUY' for f in s['fills']),
+            sell_fills=sum(f['side']=='SELL' for f in s['fills']),orders=len(s['orders']),
+            order_states=dict(Counter(o['status'] for o in s['orders'].values())),
+            canceled_reasons=dict(Counter(o.get('reason','UNRECORDED') for o in s['orders'].values() if o['status']=='CANCELED')),
+            ledger_reconciled=True,ledger_last_ms=s['last_ms'])
+        if equity is None:issues.append('Inventário sem marcação recente compatível; patrimônio desconhecido.')
+        if s['halt']:issues.append('Trava de risco registrada: '+str(s['halt'])+'.')
+        if not s['fills']:issues.append('Sem preenchimentos: não há desempenho operacional de trades para avaliar.')
+    h=read(root/'reports/local/operation-health.json');monitor=None
+    keys=('recent_seconds','stopped_seconds','unknown_seconds')
+    if (all(finite(h.get(k)) and h[k]>=0 for k in keys) and finite(h.get('updated')) and
+            finite(h.get('started')) and 0<=h['started']<=h['updated']<=now):
+        monitor=dict(**{k:h[k] for k in keys},age_seconds=now-h['updated'],
+                     scope='Janela do monitor pode incluir outras sessões; não é uptime comprovado.')
+        if monitor['age_seconds']>=45:issues.append('Monitor de disponibilidade sem amostra recente.')
+        if h['unknown_seconds']>0:issues.append('Há tempo desconhecido no monitor; continuidade não demonstrada.')
+    else:issues.append('Medição de disponibilidade ausente ou inválida.')
+    alerts=read(root/'reports/local/portfolio/alerts-status.json');stamp=alerts.get('updated_ms')
+    alerts_recent=type(stamp) is int and 0<=now*1000-stamp<90000
+    telegram=alerts.get('telegram_enabled') if alerts_recent and type(alerts.get('telegram_enabled')) is bool else None
+    if telegram is not True:issues.append('Entrega Telegram não confirmada neste relatório.')
+    return dict(mode='PAPER',created_ms=int(now*1000),approved=False,live_enabled=False,
+        verdict='NOT_READY_FOR_LIVE',wallet=wallet,operational=scope,session_expired=expired,
+        stop_present=stopped,availability=monitor,telegram_enabled=telegram,issues=issues,
+        notes=['Full shared-wallet ledger only; legacy balances excluded.',
+               'Sources sampled separately; not an atomic cross-service snapshot.',
+               'Zero trading PnL without fills is not evidence of an edge.',
+               'No strategy profitability or independent validation is granted by this operational report.'])
+
+
 def finite(v):return isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v)
 
 
@@ -118,3 +189,11 @@ def register(root):
     registry['scope']='Inventário retrospectivo dos relatórios locais disponíveis, não uma pré-inscrição histórica. Configurações não registradas não são contadas. Não corrige múltiplos testes.'
     registry['approved']=False
     return registry
+
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description='Revisão somente leitura da carteira compartilhada PAPER.')
+    parser.add_argument('--data-dir',type=Path,default=Path(__file__).resolve().parent)
+    args=parser.parse_args()
+    print(json.dumps(shared_review(args.data_dir.resolve()),ensure_ascii=True,allow_nan=False,indent=2))
