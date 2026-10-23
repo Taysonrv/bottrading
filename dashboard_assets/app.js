@@ -6,6 +6,53 @@ const percent = v => Number.isFinite(v) ? number(v*100) + '%' : '—';
 const date = value => { if(!value) return 'Sem leitura'; const d=new Date(typeof value==='number'?value*1000:value); return Number.isNaN(d.getTime())?'Sem leitura':d.toLocaleString('pt-BR'); };
 const escape = value => String(value??'—').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const empty = (title, detail='') => `<div class="empty"><strong>${escape(title)}</strong>${escape(detail)}</div>`;
+// Premium views consume the same authenticated /api/status snapshot as the
+// trading panels. They never generate orders or synthetic performance values.
+const premiumHistory=new Map();
+function renderPremium(data){
+ const p=data.portfolio||{},m=data.multipair||{},stats=portfolioPerformance(p);
+ const numeric=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v):NaN;
+ const metric=(label,value,note)=>'<article class="term-stat"><p>'+escape(label)+'</p><strong>'+escape(value)+'</strong><small>'+escape(note)+'</small></article>';
+ $('premium-metrics').innerHTML=[metric('Acerto dos ciclos',percent(stats.winRate??NaN),'Somente ciclos fechados completos'),metric('Posições abertas / ciclos fechados',(p.available?(p.position?'1':'0'):'—')+' / '+(stats.closed??'—'),'Uma posição simultânea no máximo'),metric('PnL do dia','—','Ainda sem série diária reconciliada'),metric('Sharpe / drawdown máximo','—','Série de retornos ainda indisponível')].join('');
+ const pairs=Array.isArray(m.pairs)?m.pairs:[];
+ const age=Date.now()-m.updated_ms;
+ const recent=Number.isFinite(age)&&age>=0&&age<180000;
+ const spark=(row)=>{
+   const price=numeric(row.close),stamp=row.candle_close_ms;
+   let points=premiumHistory.get(row.symbol)||[];
+   if(recent&&row.status==='OK'&&Number.isFinite(price)&&price>0&&Number.isSafeInteger(stamp)&&stamp<=Date.now()){
+     if(!points.length||stamp>points.at(-1).time){points=[...points,{time:stamp,price}].slice(-24);premiumHistory.set(row.symbol,points);}
+   }
+   if(points.length<2)return '<span class="spark-empty">Aguardando 2 candles</span>';
+   const min=Math.min(...points.map(p=>p.price)),max=Math.max(...points.map(p=>p.price));
+   const xy=points.map((p,i)=>(i*110/(points.length-1)).toFixed(1)+','+(26-(p.price-min)/(max-min||1)*22).toFixed(1)).join(' ');
+   return '<svg class="pair-spark" viewBox="0 0 112 30" role="img" aria-label="Fechamentos observados neste navegador"><polyline points="'+xy+'" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+ };
+ $('premium-heatmap').innerHTML=pairs.map(row=>{
+   const valid=recent&&row.status==='OK',action=valid?row.action:'UNKNOWN';
+   const kind=action==='ENTER_LONG'?'buy':action==='EXIT_LONG'?'sell':'hold';
+   return '<div class="heat-tile '+kind+'"><b>'+escape(row.symbol)+'</b><span>'+escape(!valid?'Sem confirmação':action==='ENTER_LONG'?'Intenção de compra':action==='EXIT_LONG'?'Intenção de saída':'Aguardar')+'</span></div>';
+ }).join('')||empty('Radar sem dados recentes.');
+ $('premium-pairs').innerHTML=pairs.length?table(['Par','Posição','Entrada','Fechamento radar','Variação bruta','Tempo aberto','Mini histórico'],pairs.map(row=>{
+   const pos=p.position?.symbol===row.symbol?p.position:null;
+   const fill=pos?(p.fills||[]).findLast(f=>f.side==='BUY'&&f.symbol===row.symbol&&f.time_ms===pos.opened_ms):null;
+   const entry=numeric(fill?.price),price=numeric(row.close);
+   const change=recent&&row.status==='OK'&&entry>0&&price>0?price/entry-1:NaN;
+   const elapsed=pos&&Number.isSafeInteger(pos.opened_ms)&&pos.opened_ms<=Date.now()?Math.floor((Date.now()-pos.opened_ms)/60000)+' min':'—';
+   return [escape(row.symbol),pos?'Long':'Em caixa',number(entry,6),number(price,6),percent(change),escape(elapsed),spark(row)];
+ })):empty('Aguardando o radar de seis pares.');
+}
+function premiumClock(){
+ $('premium-clock').textContent=new Date().toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'})+' · Brasília';
+}
+premiumClock();setInterval(premiumClock,1000);
+$('sidebar-collapse').addEventListener('click',()=>{
+ const collapsed=$('app').classList.toggle('nav-collapsed');
+ $('sidebar-collapse').setAttribute('aria-expanded',String(!collapsed));
+});
+$('premium-stop').addEventListener('click',()=>$('stop').click());
+try{const name=localStorage.getItem('spotlab-display-name');if(name)$('bot-display-name').value=name.slice(0,28);}catch{}
+$('bot-display-name').addEventListener('change',()=>{try{localStorage.setItem('spotlab-display-name',$('bot-display-name').value.slice(0,28));}catch{}});
 const names={regime_v1:'Regimes de mercado',trend_v1:'Tendência por médias',breakout_v1:'Rompimento de máxima'};
 const regimes={tranquilo:'Tranquilo',lateral:'Lateral',nervoso:'Volátil',queda_forte:'Queda forte',aquecimento:'Aquecimento'};
 function table(headers, rows){return `<table><thead><tr>${headers.map(h=>`<th>${escape(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
@@ -353,6 +400,7 @@ function terminalChart(k,ema){
  return svg+'<text x="45" y="326" fill="#a086b0" font-size="10">'+escape(date(candles[0].time_ms/1000))+'</text><text x="'+(split+6)+'" y="326" fill="#f778c2" font-size="10">Previsão · '+horizon+'h</text></svg>';
 }
 function renderTerminal(data){
+ renderPremium(data);
  const multi=data.system?.controller?.engine==='portfolio',p=data.portfolio||{};
  const num=v=>v===null||v===undefined?NaN:Number(v);
  const shared={available:p.available,fresh:p.fresh,capital:20,equity:num(p.equity),pnl:num(p.equity)-20,cash:num(p.cash),reserved:num(p.reserved),fees:num(p.fees),realized:num(p.realized),updated:p.updated||(Number.isFinite(data.system?.execution?.age_seconds)?Date.now()/1000-data.system.execution.age_seconds:null),reason:p.reason,last_signal:p.reason,symbol:p.position?.symbol||'6 pares / USDT',units:num(p.position?.quantity||0),active_order_id:p.pending?.id,synthetic_exit:!!p.position?.exit_request,stop:p.halt==='STOP'||p.reason==='STOP',buy_fills:p.buy_fills??(p.fills||[]).filter(f=>f.side==='BUY').length,sell_fills:p.sell_fills??(p.fills||[]).filter(f=>f.side==='SELL').length,orders:(p.orders||[]).map(o=>({...o,quantity:num(o.quantity),price:num(o.limit)})),fills:(p.fills||[]).map(f=>({...f,quantity:num(f.quantity),price:num(f.price),time:f.time_ms/1000})),risk:{available:p.available&&p.fresh,updated:p.updated,drawdown:num(p.drawdown),daily_halted:p.halt==='DAILY_LOSS',drawdown_halted:p.halt==='DRAWDOWN'}};

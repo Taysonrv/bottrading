@@ -212,3 +212,18 @@ console.log('OK: operational summary separates stale services and displays reque
 ctx.renderTerminal({system:{controller:{engine:'portfolio'}},portfolio:{available:true,fresh:true,cash:'14',equity:'20',position:{symbol:'BTC/USDT',quantity:'.0001',exit_request:{reason:'STOP_LOSS'}}},multipair:{}});
 assert.match(element('term-pipeline').innerHTML,/Saída sintética solicitada/);
 console.log('OK: pending synthetic exit is visible in the execution pipeline.');
+
+const premiumData={portfolio:{available:true,capital:'20',cash:'20',equity:'20',fills:[],buy_fills:0,sell_fills:0},multipair:{updated_ms:Date.now(),pairs:[{symbol:'BTC/USDT',status:'OK',action:'HOLD',close:60000,candle_close_ms:Date.now()-120000}]}};
+ctx.renderPremium(premiumData);
+assert.match(element('premium-metrics').innerHTML,/Série de retornos ainda indisponível/);
+assert.match(element('premium-pairs').innerHTML,/Aguardando 2 candles/);
+ctx.renderPremium(premiumData);
+assert.doesNotMatch(element('premium-pairs').innerHTML,/<polyline/);
+premiumData.multipair.pairs[0].candle_close_ms+=60000;
+premiumData.multipair.pairs[0].close=60100;
+ctx.renderPremium(premiumData);
+assert.match(element('premium-pairs').innerHTML,/<polyline/);
+premiumData.multipair.updated_ms=Date.now()-400000;
+ctx.renderPremium(premiumData);
+assert.match(element('premium-heatmap').innerHTML,/Sem confirmação/);
+console.log('OK: premium panels do not invent metrics, duplicate candles or stale signals.');
