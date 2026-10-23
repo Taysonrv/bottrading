@@ -6,6 +6,23 @@ from pathlib import Path
 from system_status import read
 
 
+def persist_status(path,payload,writer=None,sleep=time.sleep):
+    """Bounded retries for Windows sharing errors on an auxiliary heartbeat.
+
+    This is never used for ledger, orders, STOP or engine risk persistence.
+    Persistent failure returns false so readers naturally see stale status.
+    """
+    if writer is None:
+        from spot_engine.main import save
+        writer=save
+    for attempt in range(3):
+        try:writer(path,payload);return True
+        except PermissionError:
+            if attempt<2:sleep(.05*2**attempt)
+        except OSError:return False
+    return False
+
+
 class Recovery:
     """Three delayed attempts per component for this supervisor lifetime."""
     def __init__(self):

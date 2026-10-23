@@ -15,7 +15,7 @@ import sys
 import time
 from spot_engine.main import single_runner,save
 from system_status import build,read
-from supervisor_health import Recovery,event,previous_run
+from supervisor_health import Recovery,event,previous_run,persist_status
 
 ROOT=Path(__file__).resolve().parent
 
@@ -95,9 +95,15 @@ def main():
     # Reproducible conservative defaults, no Binance credentials forwarded.
     env={k:v for k,v in env.items() if not k.startswith(('TRADING_','BINANCE_'))}
     env['SPOTLAB_ACCESS_CODE']=env.get('SPOTLAB_ACCESS_CODE') or secrets.token_urlsafe(18)
+    status_warning=False
     def status(phase):
-        save(folder/'system-run.json',dict(mode='PAPER',phase=phase,reason=reason,updated_ms=int(time.time()*1000),
+        nonlocal status_warning
+        saved=persist_status(folder/'system-run.json',dict(mode='PAPER',phase=phase,reason=reason,updated_ms=int(time.time()*1000),
              started_ms=int(started*1000),engine=args.engine,real_orders=0,components=[dict(name=n,pid=p.pid,exit_code=p.poll()) for n,p in children]))
+        if not saved and not status_warning:
+            journal('STATUS_REPORT_UNAVAILABLE',reason='IO_ERROR')
+            print('Relatório do supervisor indisponível; motor preservado. Dados poderão aparecer antigos.',flush=True)
+        status_warning=not saved
     recovery=Recovery();observed=set();specs={}
     def journal(kind,**fields):
         try:event(root,kind,**fields)

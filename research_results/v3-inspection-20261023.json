@@ -1,0 +1,153 @@
+{
+  "last": {
+    "symbol": "BTC/USDT",
+    "decision_ms": 1792725300000,
+    "ready": true,
+    "regime": "TRANSITION",
+    "h4_close_ms": 1792713600000,
+    "daily_close_ms": 1792713600000,
+    "h4_bars": 4385,
+    "daily_bars": 730,
+    "rsi14": 64.26004685193452,
+    "adx14": 18.684187727300422,
+    "atr14": 199.94687975866327,
+    "atr_fraction": 0.0024418973815375907,
+    "vwap": 81481.90729764901,
+    "volume_relative20": 0.5957248862524924,
+    "ema": {
+      "9": 81677.43321234679,
+      "12": 81626.65721673898,
+      "21": 81547.50196555317,
+      "26": 81530.40043013776,
+      "50": 81591.0762257523
+    },
+    "macd12_26": 96.25678660122503,
+    "macd_signal9": 30.046029157218438,
+    "obv": -65190.42046099955,
+    "bollinger20": {
+      "lower": 81066.74135271412,
+      "middle": 81474.3365,
+      "upper": 81881.93164728589
+    },
+    "divergence_confirmed": false,
+    "pivot_confirmations": [
+      {
+        "price": 81118.42,
+        "rsi": 40.54466790322662,
+        "index": 70164,
+        "confirmed_ms": 1792717200000
+      },
+      {
+        "price": 81208.0,
+        "rsi": 53.728996259839356,
+        "index": 70169,
+        "confirmed_ms": 1792721700000
+      }
+    ],
+    "rules": {
+      "ema_ribbon": {
+        "checks": {
+          "trend": false,
+          "momentum": false,
+          "timing": false,
+          "volatility": false,
+          "volume": false
+        },
+        "score_points": 0,
+        "candidate": false
+      },
+      "rsi_divergence": {
+        "checks": {
+          "trend": false,
+          "momentum": false,
+          "timing": false,
+          "volatility": false,
+          "volume": false
+        },
+        "score_points": 0,
+        "candidate": false
+      },
+      "breakout_volume": {
+        "checks": {
+          "trend": false,
+          "momentum": true,
+          "timing": false,
+          "volatility": false,
+          "volume": false
+        },
+        "score_points": 20,
+        "candidate": false
+      },
+      "vwap_reversion": {
+        "checks": {
+          "trend": false,
+          "momentum": false,
+          "timing": false,
+          "volatility": false,
+          "volume": false
+        },
+        "score_points": 0,
+        "candidate": false
+      }
+    },
+    "research_candidate": null,
+    "action": "HOLD",
+    "execution_authorized": false,
+    "external_filters": "NOT_CONNECTED",
+    "status": "INDICATOR_RESEARCH_ONLY",
+    "note": "No sizing, exits, external filters or trading approval."
+  },
+  "bars": 70176,
+  "ready_bars": 55694,
+  "regime_counts": {
+    "UNKNOWN": 14482,
+    "TRANSITION": 40438,
+    "RANGE": 4401,
+    "BREAKOUT": 903,
+    "TREND": 9952
+  },
+  "candidate_counts": {
+    "ema_ribbon": 0,
+    "rsi_divergence": 0,
+    "breakout_volume": 0,
+    "vwap_reversion": 0
+  },
+  "failed_checks_after_warmup": {
+    "ema_ribbon": {
+      "trend": 51152,
+      "momentum": 54106,
+      "timing": 54792,
+      "volatility": 51554,
+      "volume": 50746
+    },
+    "rsi_divergence": {
+      "trend": 53661,
+      "momentum": 54357,
+      "timing": 55001,
+      "volatility": 51554,
+      "volume": 54280
+    },
+    "breakout_volume": {
+      "trend": 55279,
+      "momentum": 36244,
+      "timing": 53165,
+      "volatility": 51554,
+      "volume": 50746
+    },
+    "vwap_reversion": {
+      "trend": 53661,
+      "momentum": 54357,
+      "timing": 54637,
+      "volatility": 51554,
+      "volume": 54280
+    }
+  },
+  "note": "Multiple checks may fail on the same bar; do not add counts. Signals are not fills.",
+  "backtested": false,
+  "approved": false,
+  "csv_sha256": "ac28586afb033cf4788fd73185eb6968287fa8227a5dbad1bb8993bbbca10b5b",
+  "source_hashes": {
+    "v3_research.py": "87fd77a0ed78edf5b55eb44ee0edadd5fdd659492ea82a50b183f2659039f4ef",
+    "data.py": "436d2b59ec90f2f142cdbca6b71f8a84ec665e203a6a525cc2ff1437ae676889"
+  }
+}

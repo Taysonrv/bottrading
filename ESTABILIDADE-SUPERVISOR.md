@@ -10,6 +10,12 @@ Enquanto o processo do motor permanece vivo, o supervisor pode tentar recuperar 
 
 O motor nunca é reiniciado por essa política. STOP, término de prazo, falha de dados/ledger e limites de risco não são removidos ou reinterpretados. Nenhuma carteira é reiniciada. O coletor de contexto e monitor executados como serviços internos continuam com seu tratamento existente; não são cobertos pela recuperação de subprocessos.
 
+## Gravação do heartbeat no Windows
+
+Foi encontrado um encerramento com SUPERVISOR_FAILURE causado por PermissionError/WinError5 ao substituir system-run.json. Agora somente esse relatório auxiliar usa até três tentativas, com esperas de50 e100ms entre elas. Se a escrita continuar indisponível, registra STATUS_REPORT_UNAVAILABLE quando possível e preserva o processo do motor. O painel passa naturalmente a indicar dados antigos. O aviso não é repetido a cada segundo enquanto a mesma indisponibilidade persiste.
+
+Essa tolerância **não** é aplicada ao ledger, a ordens, STOP, dados do motor ou persistência de risco. Falhas nessas áreas mantêm seu tratamento existente. Uma trava STOP já criada pelo encerramento anterior não é removida por esta correção. A correção entra em vigor somente após uma nova inicialização válida do supervisor.
+
 A recuperação não funciona se o próprio supervisor for encerrado, o computador desligar ou suspender. Operação contínua exige depois uma implantação supervisionada no sistema operacional, com regras explícitas para retomada do motor.
 
 ## Ativação e testes

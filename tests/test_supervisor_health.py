@@ -2,10 +2,25 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from supervisor_health import Recovery, event, previous_run
+from supervisor_health import Recovery, event, previous_run, persist_status
+from unittest.mock import Mock
 
 
 class SupervisorHealthTests(unittest.TestCase):
+    def test_windows_status_sharing_error_retried_without_engine_side_effect(self):
+        writer=Mock(side_effect=[PermissionError('sharing'),PermissionError('sharing'),None]);sleep=Mock()
+        self.assertTrue(persist_status(Path('status.json'),{'phase':'RUNNING'},writer,sleep))
+        self.assertEqual(writer.call_count,3)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list],[.05,.1])
+
+    def test_persistent_heartbeat_io_error_returns_unavailable(self):
+        writer=Mock(side_effect=PermissionError('sharing'));sleep=Mock()
+        self.assertFalse(persist_status(Path('status.json'),{},writer,sleep))
+        self.assertEqual(writer.call_count,3)
+        disk=Mock(side_effect=OSError('disk'))
+        self.assertFalse(persist_status(Path('status.json'),{},disk,sleep))
+        self.assertEqual(disk.call_count,1)
+
     def test_engine_never_restarts(self):
         r=Recovery()
         for t in (0,100,999999):
