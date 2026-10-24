@@ -69,13 +69,14 @@ def lifecycle(children,session):
     return 'RUNNING','ACTIVE'
 
 
-def commands(root,port,engine='ema'):
+def commands(root,port,engine='ema',v3_observe=False):
+    observer=[('v3_observer',[sys.executable,'-u','-m','v3_engine.live','--data-dir',str(root),'--hours','48'],ROOT)] if v3_observe else []
     if engine=='portfolio':
         return [('execution',[sys.executable,'-u','-m','spot_engine.portfolio_run','--data-dir',str(root),'--start'],ROOT),
-                ('dashboard',[sys.executable,'-u',str(ROOT/'dashboard.py'),'--port',str(port),'--data-dir',str(root)],ROOT)]
+                ('dashboard',[sys.executable,'-u',str(ROOT/'dashboard.py'),'--port',str(port),'--data-dir',str(root)],ROOT)]+observer
     return [('execution',[sys.executable,'-u','-m','spot_engine.main','paper','--session','ema20','--hours','24','--order-budget','6'],root),
             ('market',[sys.executable,'-u','-m','spot_engine.scanner','--timeframe','15m','--output',str(root/'reports/local/multipair.json')],ROOT),
-            ('dashboard',[sys.executable,'-u',str(ROOT/'dashboard.py'),'--port',str(port),'--data-dir',str(root)],ROOT)]
+            ('dashboard',[sys.executable,'-u',str(ROOT/'dashboard.py'),'--port',str(port),'--data-dir',str(root)],ROOT)]+observer
 
 
 def main():
@@ -85,6 +86,7 @@ def main():
     parser.add_argument('--port',type=int,default=8768)
     parser.add_argument('--start',action='store_true',help='Inicia os componentes; sem esta opção apenas verifica.')
     parser.add_argument('--execution-only',action='store_true',help='Usa painel já iniciado separadamente; não ocupa sua porta nem controla seu processo.')
+    parser.add_argument('--v3-observe',action='store_true',help='Inclui observador V3 separado, sem ordens; não reinicia observador após saída.')
     args=parser.parse_args();root=args.data_dir.resolve()
     try:session=preflight(root,args.port,engine=args.engine,execution_only=args.execution_only)
     except (OSError,ValueError) as error:raise SystemExit('Não iniciado: '+str(error)) from None
@@ -119,7 +121,7 @@ def main():
             try:previous_run(root)
             except (OSError,ValueError):print('Previous-run journal unavailable.',flush=True)
             journal('SUPERVISOR_STARTED',pid=os.getpid())
-            for name,command,cwd in commands(root,args.port,args.engine):
+            for name,command,cwd in commands(root,args.port,args.engine,args.v3_observe):
                 if args.execution_only and name=='dashboard':continue
                 specs[name]=(command,cwd)
                 children.append((name,launch(name,command,cwd)))

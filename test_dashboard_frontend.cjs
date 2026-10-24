@@ -247,3 +247,10 @@ assert.equal(ctx.decisionSnapshot({...decisionData,multipair:{...decisionData.mu
 assert.equal(ctx.decisionSnapshot({...decisionData,portfolio:{available:false}}).counts,null);
 ctx.renderDecisionAudit(decisionData);assert.match(element('decision-orders').innerHTML,/Expirada sem preenchimento/);assert.doesNotMatch(element('decision-orders').innerHTML,/liquidez insuficiente/);
 console.log('OK: decision audit distinguishes expired, pending, stale, STOP and incomplete radar.');
+ctx.renderV3({});assert.match(element('v3-health').textContent,/Aguardando/);
+ctx.renderV3({available:true,fresh:false,report:{updated_ms:Date.now()-100000,reason:'DATA_UNAVAILABLE',
+  signals:[{symbol:'<script>',regime:'CRISIS',score:0,action:'HOLD',reason:'GATES',timestamp_ms:1000,components:{momentum:0}}]}});
+assert.match(element('v3-health').textContent,/Sem confirmação/);
+assert.match(element('v3-signals').innerHTML,/&lt;script&gt;/);assert.doesNotMatch(element('v3-signals').innerHTML,/<script>/);
+assert.match(element('v3-session').innerHTML,/BLOQUEADA/);assert.match(element('v3-session').innerHTML,/observador sem carteira/);
+console.log('OK: V3 uses same polling, escapes data, marks stale readings and never invents a wallet.');

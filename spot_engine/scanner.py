@@ -23,14 +23,20 @@ def scan(client, now_ms, timeframe='15m'):
             settings = replace(cfg, symbol=symbol)
             history = download(client, symbol, cfg.timeframe, cutoff-620*step, cutoff)
             signal = analyze(history, settings)[-1]
+            # Added diagnostics only. A short history cannot warm up V3 HTFs;
+            # do not let this UNKNOWN annotation change the original EMA signal.
+            from v3_engine.scanner import quick_regime
+            diagnostic = quick_regime(history)
             rows.append(dict(symbol=symbol, status='OK', action=signal.action,
                              reason=signal.reason, candle_close_ms=cutoff,
                              close=history.candles[-1].close,
                              ema_fast=signal.ema_fast, ema_slow=signal.ema_slow,
-                             ema_trend=signal.ema_trend, atr_fraction=signal.atr_fraction))
+                             ema_trend=signal.ema_trend, atr_fraction=signal.atr_fraction,
+                             regime_v3=diagnostic))
         except Exception:
             # Never retain previous success for a failed pair or echo provider URLs.
-            rows.append(dict(symbol=symbol, status='ERROR', action=None, reason='PUBLIC_DATA_UNAVAILABLE'))
+            rows.append(dict(symbol=symbol, status='ERROR', action=None, reason='PUBLIC_DATA_UNAVAILABLE',
+                             regime_v3=dict(detected='UNKNOWN',reason='DATA_UNAVAILABLE',execution_authorized=False)))
     previews=[]
     for row in rows:
         if row.get('action')!='ENTER_LONG':
@@ -73,6 +79,16 @@ def main():
                 report = dict(mode='OBSERVE_ONLY', updated_ms=int(time.time()*1000),
                               pairs=[], status='ERROR', real_orders=0, simulated_orders=0, approved=False)
             save(args.output, report)
+            diagnostic_folder=args.output.parent/'scanner-v3'
+            diagnostic_folder.mkdir(parents=True,exist_ok=True)
+            summary={}
+            for row in report.get('pairs',[]):
+                regime=row.get('regime_v3',{}).get('detected','UNKNOWN')
+                summary[regime]=summary.get(regime,0)+1
+            save(diagnostic_folder/'latest.json',dict(updated_ms=report['updated_ms'],
+                pairs_scanned=report.get('pairs',[]),regime_summary=summary,top_candidate=None,
+                execution_authorized=False,approved=False,
+                note='Quick diagnostics only; no full higher-timeframe warmup or invented score.'))
             if args.once: break
             time.sleep(60)
 

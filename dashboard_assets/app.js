@@ -57,13 +57,13 @@ function renderPremium(data){
    const kind=action==='ENTER_LONG'?'buy':action==='EXIT_LONG'?'sell':'hold';
    return '<div class="heat-tile '+kind+'"><b>'+escape(row.symbol)+'</b><span>'+escape(!valid?'Sem confirmação':action==='ENTER_LONG'?'Intenção de compra':action==='EXIT_LONG'?'Intenção de saída':'Aguardar')+'</span></div>';
  }).join('')||empty('Radar sem dados recentes.');
- $('premium-pairs').innerHTML=pairs.length?table(['Par','Posição','Entrada','Fechamento radar','Variação bruta','Tempo aberto','Mini histórico'],pairs.map(row=>{
+ $('premium-pairs').innerHTML=pairs.length?table(['Par','Posição','Entrada','Fechamento radar','Variação bruta','Tempo aberto','Mini histórico','Regime V3'],pairs.map(row=>{
    const pos=p.position?.symbol===row.symbol?p.position:null;
    const fill=pos?(p.fills||[]).findLast(f=>f.side==='BUY'&&f.symbol===row.symbol&&f.time_ms===pos.opened_ms):null;
    const entry=numeric(fill?.price),price=numeric(row.close);
    const change=recent&&row.status==='OK'&&entry>0&&price>0?price/entry-1:NaN;
    const elapsed=pos&&Number.isSafeInteger(pos.opened_ms)&&pos.opened_ms<=Date.now()?Math.floor((Date.now()-pos.opened_ms)/60000)+' min':'—';
-   return [escape(row.symbol),pos?'Long':'Em caixa',number(entry,6),number(price,6),percent(change),escape(elapsed),spark(row)];
+   return [escape(row.symbol),pos?'Long':'Em caixa',number(entry,6),number(price,6),percent(change),escape(elapsed),spark(row),escape(data.v3?.fresh?(data.v3.report?.pairs||[]).find(p=>p.symbol===row.symbol)?.regime_v3||'UNKNOWN':'Sem confirmação')];
  })):empty('Aguardando o radar de seis pares.');
 }
 function premiumClock(){
@@ -96,7 +96,7 @@ async function api(path, body){const response=await fetch(path,{method:body?'POS
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#25375c" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
-function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('overview').hidden)document.querySelector('[data-view="terminal"]').click();renderPortfolio(data.portfolio||{});renderSystemIntegration(data.system||{});renderKronos(data.kronos_lab||{});renderSpotResearch(data.spot_research||{});renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
+function render(data){renderV3(data.v3||{});if(data.system?.controller?.engine==='portfolio'&&!$('overview').hidden)document.querySelector('[data-view="terminal"]').click();renderPortfolio(data.portfolio||{});renderSystemIntegration(data.system||{});renderKronos(data.kronos_lab||{});renderSpotResearch(data.spot_research||{});renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
@@ -201,7 +201,7 @@ function render(data){if(data.system?.controller?.engine==='portfolio'&&!$('over
 }
 async function refresh(){if(busy)return;busy=true;try{const response=await api('/api/status');csrf=response.csrf;render(response.data);$('error').textContent='';}catch(e){$('error').textContent=e.message;$('connection').textContent='○ Sem conexão com o painel';}finally{busy=false;}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;$('login-error').textContent='';try{const response=await api('/api/login',{password:$('access').value});csrf=response.csrf;$('access').value='';showApp();await refresh();}catch(error){$('login-error').textContent=error.message;}finally{button.disabled=false;}});
-for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={terminal:'Terminal de operações.',ema:'Arquivo · experimento EMA/1h.',shadow:'V2 · demonstração offline.',live20:'Arquivo · simulação anterior.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(v=>v.hidden=v.id!==button.dataset.view);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===button));if(typeof location!=='undefined')location.hash=button.dataset.view;$('page-name').textContent=button.textContent.trim();$('heading').textContent={v3:'V3 · pesquisa sem execução.',terminal:'Terminal de operações.',ema:'Arquivo · experimento EMA/1h.',shadow:'V2 · demonstração offline.',live20:'Arquivo · simulação anterior.',metamask:'MetaMask · testes e simulações.',overview:'Tudo sob seu olhar.',activity:'O bot, passo a passo.',research:'Evidência antes de operar.',positions:'Sua simulação em detalhe.',diagnosis:'Entenda cada bloqueio.'}[button.dataset.view];if(typeof metamaskChrome==='function') metamaskChrome();refresh();});
 $('refresh').addEventListener('click',refresh);$('stop').addEventListener('click',()=>{$('stop-result').textContent='';$('stop-dialog').showModal();});$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());$('confirm-stop').addEventListener('click',async()=>{const b=$('confirm-stop');b.disabled=true;try{const result=await api('/api/stop',{});$('stop-result').textContent=result.message;await refresh();}catch(e){$('stop-result').textContent=e.message;}finally{b.disabled=false;}});$('logout').addEventListener('click',async()=>{try{await api('/api/logout',{});showLogin();}catch(e){$('error').textContent=e.message;}});
 (async()=>{try{const response=await api('/api/status');csrf=response.csrf;showApp();render(response.data);}catch{showLogin();}})();
 
@@ -344,7 +344,7 @@ function renderEma(s,multipair={}){
 
 if(typeof location!=='undefined'&&!location.hash)location.hash='#terminal';
 if(typeof location!=='undefined'&&['overview','activity','positions'].includes(location.hash.slice(1)))location.hash='terminal';
-if(typeof location!=='undefined'&&['terminal','ema','diagnosis','live20','shadow','metamask','research'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
+if(typeof location!=='undefined'&&['terminal','ema','diagnosis','live20','shadow','metamask','research','v3'].includes(location.hash.slice(1)))document.querySelector('[data-view="'+location.hash.slice(1)+'"]').click();
 
 
 function renderEmaDiagnosis(s,multipair={}){
@@ -656,3 +656,18 @@ function setupWorkspace(){
  }
 }
 if(typeof window!=='undefined')setupWorkspace();
+
+// Reuses the authenticated status poll; no new timer, execution route or mock.
+function renderV3(view){
+ if(!$('v3-health'))return;
+ const r=view.report||{},wait='Aguardando dados do motor V3...';
+ $('v3-health').textContent=!view.available?wait:(view.fresh?'Observador recente':'Sem confirmação recente')+' · '+String(r.reason||'UNKNOWN')+' · '+date(r.updated_ms/1000);
+ const pairs=Array.isArray(r.pairs)?r.pairs:[];
+ const badge=regime=>'<span class="v3-regime '+(['TREND','BREAKOUT','RANGE','CRISIS'].includes(regime)?regime:'UNKNOWN')+'">'+escape(regime||'UNKNOWN')+'</span>';
+ $('v3-regimes').innerHTML=pairs.length?table(['Par','Estado','Regime','ADX14','RSI14','ATR','Score'],pairs.map(p=>[escape(p.symbol),escape(view.fresh?p.status:'Dado salvo'),badge(p.regime_v3),number(p.state?.adx14),number(p.state?.rsi14),percent(p.state?.atr_fraction),number(p.score_estimate,0)])):empty(wait);
+ const signals=Array.isArray(r.signals)?r.signals.slice(0,50):[];
+ $('v3-signals').innerHTML=signals.length?table(['UTC/local','Par','Regime','Score','Ação','Motivo / componentes'],signals.map(s=>[escape(date(s.timestamp_ms/1000)),escape(s.symbol),badge(s.regime),number(s.score,0),escape(s.action),'<details><summary>'+escape(s.reason)+'</summary>'+Object.entries(s.components||{}).map(([k,v])=>'<p>'+escape(k)+' <meter min="0" max="20" value="'+Math.max(0,Math.min(20,Number(v)||0))+'"></meter> '+escape(v)+'/20</p>').join('')+'</details>'])):empty(wait);
+ const shadows=Array.isArray(view.shadow_recent)?view.shadow_recent:[];
+ $('v3-shadow').innerHTML=shadows.length?'<p>Concordância no recorte: '+escape(percent(view.agreement_recent))+' · '+shadows.length+' registros</p>'+table(['Horário','Par','Julgamento','Motivo'],shadows.slice(0,20).map(s=>[escape(date(s.timestamp_ms/1000)),escape(s.v3_signal?.symbol),escape(s.shadow_judgment?.action||s.status),escape(s.shadow_judgment?.reason||'Indisponível')])):empty('Nenhum julgamento shadow registrado.');
+ $('v3-session').innerHTML=table(['Métrica','Valor'],[['Modo','PAPER / EXPERIMENTAL / OBSERVE ONLY'],['Cobertura recente neste processo',number(r.forward_observation_hours)+' h'],['48h de cobertura',r.observed_48h===true?'Registradas; ainda sem autorização':'Pendente'],['Revisão humana de dez sinais','Pendente'],['Carteira / PnL','Não aplicável: observador sem carteira'],['Execução','BLOQUEADA']]);
+}
