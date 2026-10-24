@@ -661,6 +661,10 @@ if(typeof window!=='undefined')setupWorkspace();
 function renderV3(view){
  if(!$('v3-health'))return;
  const r=view.report||{},wait='Aguardando dados do motor V3...';
+ const f=view.feasibility||{},frows=Array.isArray(f.pairs)?f.pairs:[],bt=view.backtest||{};
+ if($('v3-feasibility'))$('v3-feasibility').innerHTML=frows.length?'<p>Consulta salva: '+escape(date(f.updated_ms/1000))+' · não é cotação ao vivo</p>'+table(['Par','Mínimo/ordem','Mínimo agregado 3 stops','Score atual','Motivo atual','Teste score100','Teto impede 3 parcelas'],frows.map(p=>[escape(p.symbol),escape(p.normalized_rules?.min_notional),escape(p.minimum_aggregate_stop_notional),number(p.actual_score,0),escape(p.strategy_score_plan?.reason||p.reason),escape(p.hypothetical_perfect_score_plan?.reason),p.cap_precludes_three_stop_legs===true?'Sim':'Não demonstrado'])):empty('Auditoria de filtros ainda não coletada.');
+ if($('v3-backtest'))$('v3-backtest').innerHTML=bt.scope?table(['Diagnóstico offline','Valor'],[['Par',escape(bt.symbol)],['Candidatos / ciclos fechados',escape(bt.candidate_count)+' / '+escape(bt.closed_trades)],['Retorno líquido hipotético',percent(bt.net_return)],['Rejeições',escape(JSON.stringify(bt.rejected_candidates||{}))],['Veredito',escape(bt.verdict)],['Execução','BLOQUEADA']]):empty('Backtest integrado V3 ainda não carregado.');
+
  $('v3-health').textContent=!view.available?wait:(view.fresh?'Observador recente':'Sem confirmação recente')+' · '+String(r.reason||'UNKNOWN')+' · '+date(r.updated_ms/1000);
  const pairs=Array.isArray(r.pairs)?r.pairs:[];
  const badge=regime=>'<span class="v3-regime '+(['TREND','BREAKOUT','RANGE','CRISIS'].includes(regime)?regime:'UNKNOWN')+'">'+escape(regime||'UNKNOWN')+'</span>';

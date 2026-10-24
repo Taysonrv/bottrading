@@ -254,3 +254,11 @@ assert.match(element('v3-health').textContent,/Sem confirmação/);
 assert.match(element('v3-signals').innerHTML,/&lt;script&gt;/);assert.doesNotMatch(element('v3-signals').innerHTML,/<script>/);
 assert.match(element('v3-session').innerHTML,/BLOQUEADA/);assert.match(element('v3-session').innerHTML,/observador sem carteira/);
 console.log('OK: V3 uses same polling, escapes data, marks stale readings and never invents a wallet.');
+ctx.renderV3({feasibility:{updated_ms:Date.now(),pairs:[{symbol:'BTC/USDT',actual_score:0,
+ normalized_rules:{min_notional:'5'},minimum_aggregate_stop_notional:'15',cap_precludes_three_stop_legs:true,
+ strategy_score_plan:{reason:'SCORE_TOO_LOW'},hypothetical_perfect_score_plan:{reason:'ATR_RANGE'}}]},
+ backtest:{scope:'V3_COUNTERFACTUAL_CONSTANT_FILTER_CANDLE_MODEL',symbol:'BTC/USDT',candidate_count:2,closed_trades:0,net_return:0,
+ rejected_candidates:{PARTIAL_EXIT_FILTER:2},verdict:'NO_TRADES_NOT_VALIDATED'}});
+assert.match(element('v3-feasibility').innerHTML,/SCORE_TOO_LOW/);assert.match(element('v3-feasibility').innerHTML,/ATR_RANGE/);
+assert.match(element('v3-backtest').innerHTML,/NO_TRADES_NOT_VALIDATED/);assert.match(element('v3-backtest').innerHTML,/BLOQUEADA/);
+console.log('OK: V3 separates current signals, hypothetical feasibility and zero-trade research results.');

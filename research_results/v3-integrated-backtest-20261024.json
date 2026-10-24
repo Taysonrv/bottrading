@@ -1,0 +1,53 @@
+{
+  "scope": "V3_COUNTERFACTUAL_CONSTANT_FILTER_CANDLE_MODEL",
+  "symbol": "BTC/USDT",
+  "capital": "20",
+  "final_equity": "20",
+  "net_pnl": "0",
+  "net_return": 0.0,
+  "fees": "0",
+  "max_drawdown": 0.0,
+  "ready_bars": 55693,
+  "candidate_count": 2,
+  "rejected_candidates": {
+    "PARTIAL_EXIT_FILTER": 2
+  },
+  "closed_trades": 0,
+  "win_rate": null,
+  "profit_factor": null,
+  "sharpe_zero_rf": null,
+  "buy_hold_return": -0.03013354107144088,
+  "filter_assumptions": {
+    "symbol": "BTC/USDT",
+    "observed_ms": 1792847119645,
+    "qty_step": "0.00001000",
+    "min_qty": "0.00001000",
+    "max_qty": "9000.00000000",
+    "price_tick": "0.01000000",
+    "min_price": "0.01000000",
+    "max_price": "1000000.00000000",
+    "min_notional": "5.00000000",
+    "max_notional": "9000000.00000000"
+  },
+  "fee_rate": "0.001",
+  "slippage_rate": "0.001",
+  "approved": false,
+  "execution_authorized": false,
+  "verdict": "NO_TRADES_NOT_VALIDATED",
+  "limitations": [
+    "Constant present-day filters projected backward: counterfactual, not historical execution validation.",
+    "Prior closed signal enters at next open plus slippage; no spread/orderbook/queue/latency reconstruction.",
+    "Stop first in intrabar ambiguity; new trailing/breakeven applies next candle.",
+    "Synthetic market exits may not pass future exchange filters or liquidity requirements.",
+    "Risk limits are observed at opens and closes, not continuous intrabar equity.",
+    "One pair and previously inspected history; no independent OOS or multi-pair portfolio claim.",
+    "Zero trades is not evidence of profitability, low risk or strategy validation.",
+    "Score is not a probability; external macro/funding/flow filters remain unconnected."
+  ],
+  "run_id": "6a41035085e5478abb6831cd0a22065b",
+  "csv_sha256": "ac28586afb033cf4788fd73185eb6968287fa8227a5dbad1bb8993bbbca10b5b",
+  "filter_snapshot_sha256": "4b9e748f9910ba4db0da3f5c70aba780ae720a632c415644954f2205fc61d44c",
+  "source_sha256": "929cb6583e658c3522d6034d6458726038b39f731027388105b8b16f56b12318",
+  "v3_identity": "06b13310dd1c40ff4467618528814e955099782c90713f22ff23e0e5f3e4aeaa",
+  "updated_ms": 1792847212611
+}

@@ -1,0 +1,191 @@
+{
+  "scope": "PUBLIC_FILTER_FEASIBILITY_NOT_BACKTEST",
+  "updated_ms": 1792847307882,
+  "source": "BINANCE_PUBLIC_FILTERS_AND_BOOK",
+  "observer_identity": "39975c3601b210c8d1dec616b7c791e2d3d48574258d3ee33980100332578212",
+  "pairs": [
+    {
+      "symbol": "BTC/USDT",
+      "quote_ms": 1792847306081,
+      "bid": "80795.99000000",
+      "ask": "80796.00000000",
+      "atr14": "100.92639278579766",
+      "actual_score": 20,
+      "hypothetical_capital": "20",
+      "max_entry_cost": "5",
+      "strategy_score_plan": {
+        "reason": "SCORE_TOO_LOW",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "hypothetical_perfect_score_plan": {
+        "reason": "ATR_RANGE",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "perfect_score_is_market_signal": false,
+      "minimum_aggregate_stop_notional": "15.00000000",
+      "cap_precludes_three_stop_legs": true,
+      "minimum_bound_is_necessary_not_sufficient": true,
+      "normalized_rules": {
+        "symbol": "BTC/USDT",
+        "observed_ms": 1792847306081,
+        "qty_step": "0.00001000",
+        "min_qty": "0.00001000",
+        "max_qty": "9000.00000000",
+        "price_tick": "0.01000000",
+        "min_price": "0.01000000",
+        "max_price": "1000000.00000000",
+        "min_notional": "5.00000000",
+        "max_notional": "9000000.00000000"
+      },
+      "execution_authorized": false,
+      "approved": false,
+      "status": "OK",
+      "regime": "TRANSITION",
+      "candle_close_ms": 1792846800000
+    },
+    {
+      "symbol": "ETH/USDT",
+      "quote_ms": 1792847306923,
+      "bid": "2369.75000000",
+      "ask": "2369.76000000",
+      "atr14": "4.50771448996331",
+      "actual_score": 20,
+      "hypothetical_capital": "20",
+      "max_entry_cost": "5",
+      "strategy_score_plan": {
+        "reason": "SCORE_TOO_LOW",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "hypothetical_perfect_score_plan": {
+        "reason": "ATR_RANGE",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "perfect_score_is_market_signal": false,
+      "minimum_aggregate_stop_notional": "15.00000000",
+      "cap_precludes_three_stop_legs": true,
+      "minimum_bound_is_necessary_not_sufficient": true,
+      "normalized_rules": {
+        "symbol": "ETH/USDT",
+        "observed_ms": 1792847306923,
+        "qty_step": "0.00010000",
+        "min_qty": "0.00010000",
+        "max_qty": "9000.00000000",
+        "price_tick": "0.01000000",
+        "min_price": "0.01000000",
+        "max_price": "1000000.00000000",
+        "min_notional": "5.00000000",
+        "max_notional": "9000000.00000000"
+      },
+      "execution_authorized": false,
+      "approved": false,
+      "status": "OK",
+      "regime": "TRANSITION",
+      "candle_close_ms": 1792846800000
+    },
+    {
+      "symbol": "SOL/USDT",
+      "quote_ms": 1792847307770,
+      "bid": "101.60000000",
+      "ask": "101.61000000",
+      "atr14": "0.256360641453162",
+      "actual_score": 0,
+      "hypothetical_capital": "20",
+      "max_entry_cost": "5",
+      "strategy_score_plan": {
+        "reason": "SCORE_TOO_LOW",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "hypothetical_perfect_score_plan": {
+        "reason": "ATR_RANGE",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "perfect_score_is_market_signal": false,
+      "minimum_aggregate_stop_notional": "15.00000000",
+      "cap_precludes_three_stop_legs": true,
+      "minimum_bound_is_necessary_not_sufficient": true,
+      "normalized_rules": {
+        "symbol": "SOL/USDT",
+        "observed_ms": 1792847307770,
+        "qty_step": "0.00100000",
+        "min_qty": "0.00100000",
+        "max_qty": "90000.00000000",
+        "price_tick": "0.01000000",
+        "min_price": "0.01000000",
+        "max_price": "10000.00000000",
+        "min_notional": "5.00000000",
+        "max_notional": "9000000.00000000"
+      },
+      "execution_authorized": false,
+      "approved": false,
+      "status": "OK",
+      "regime": "TRANSITION",
+      "candle_close_ms": 1792846800000
+    },
+    {
+      "symbol": "BNB/USDT",
+      "quote_ms": 1792847308609,
+      "bid": "732.40000000",
+      "ask": "732.41000000",
+      "atr14": "1.1177395793434142",
+      "actual_score": 0,
+      "hypothetical_capital": "20",
+      "max_entry_cost": "5",
+      "strategy_score_plan": {
+        "reason": "SCORE_TOO_LOW",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "hypothetical_perfect_score_plan": {
+        "reason": "ATR_RANGE",
+        "valid_research_plan": false,
+        "execution_authorized": false,
+        "approved": false
+      },
+      "perfect_score_is_market_signal": false,
+      "minimum_aggregate_stop_notional": "15.00000000",
+      "cap_precludes_three_stop_legs": true,
+      "minimum_bound_is_necessary_not_sufficient": true,
+      "normalized_rules": {
+        "symbol": "BNB/USDT",
+        "observed_ms": 1792847308609,
+        "qty_step": "0.00100000",
+        "min_qty": "0.00100000",
+        "max_qty": "900000.00000000",
+        "price_tick": "0.01000000",
+        "min_price": "0.01000000",
+        "max_price": "100000.00000000",
+        "min_notional": "5.00000000",
+        "max_notional": "9000000.00000000"
+      },
+      "execution_authorized": false,
+      "approved": false,
+      "status": "OK",
+      "regime": "TRANSITION",
+      "candle_close_ms": 1792846800000
+    }
+  ],
+  "hypothetical_capital": "20",
+  "approved": false,
+  "execution_authorized": false,
+  "source_sha256": "e41727e6cebb1edf9041be2d4ffede094bba85a665afd36e73ee5a1649d4579a",
+  "limitations": [
+    "A score=100 stress test is deliberately hypothetical, not a buy signal.",
+    "Current filters are not historical filters and must not be represented as such.",
+    "Normalized LIMIT constraints omit other exchange filters and liquidity/queue effects.",
+    "No capital increase or order splitting is authorized by this report."
+  ],
+  "run_id": "c1ce4db20cc340aa97011f5a7c1d6a6a"
+}
