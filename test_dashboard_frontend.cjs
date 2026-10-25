@@ -262,3 +262,9 @@ ctx.renderV3({feasibility:{updated_ms:Date.now(),pairs:[{symbol:'BTC/USDT',actua
 assert.match(element('v3-feasibility').innerHTML,/SCORE_TOO_LOW/);assert.match(element('v3-feasibility').innerHTML,/ATR_RANGE/);
 assert.match(element('v3-backtest').innerHTML,/NO_TRADES_NOT_VALIDATED/);assert.match(element('v3-backtest').innerHTML,/BLOQUEADA/);
 console.log('OK: V3 separates current signals, hypothetical feasibility and zero-trade research results.');
+ctx.renderV3({single_exit:{scope:'SINGLE_EXIT_FIXED_HYPOTHESIS_RESEARCH',verdict:'REJECTED',
+ scenarios:[{name:'base',continuous:{final_equity:'18.12',net_return:-.094,closed_trades:55,profit_factor:.51,max_drawdown:.097},
+ windows:[{net_return:-.02},{net_return:-.05},{net_return:-.01},{net_return:-.07}]}]}});
+assert.match(element('single-exit-research').innerHTML,/REJECTED/);
+assert.match(element('single-exit-research').innerHTML,/55/);assert.match(element('single-exit-research').innerHTML,/BLOQUEADA/);
+console.log('OK: single-exit losses are research only and never displayed as active wallet equity.');

@@ -30,6 +30,7 @@ def load(root, now_ms=None):
     return dict(available=bool(report),fresh=fresh,age_ms=age,forward_source=forward,
         feasibility=read(root/'reports/local/v3-feasibility/latest.json'),
         backtest=read(root/'reports/local/v3-backtest/latest.json'),
+        single_exit=read(root/'reports/local/single-exit-research/latest.json'),
         report=report,shadow_recent=shadows,shadow_failed_reasons=failures,
         agreement_recent=sum(r['concordance'] for r in assessed)/len(assessed) if assessed else None,
         comparison_scope='Recent heuristic policy observations, not AI calibration or cumulative session accuracy.',
