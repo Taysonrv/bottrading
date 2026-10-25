@@ -1,0 +1,20 @@
+{
+  "version": "quant-control-1",
+  "purpose": "Research and reflex control plane; no execution authorization",
+  "market": "Binance Spot public data",
+  "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"],
+  "state": {"book": "REST L1", "return_interval": "15m", "closed_bars": 61, "max_bytes": 1000, "token_target": 400, "vendor_token_count_verified": false},
+  "risk": {"max_drawdown": 0.10, "max_daily_loss": 0.03, "max_trade_risk": 0.01, "orders_enabled": false},
+  "provider": {"name": "Jev", "enabled": false, "paid_calls_allowed": 0, "latency_verified": false},
+  "self_improvement": {"review_timezone": "UTC", "review_at_start_and_day_change": true, "auto_apply": false},
+  "phases": [
+    {"name": "spec", "artifact": "QUANT-CONTROL-UPGRADE.md", "promotion_approval_recorded": false},
+    {"name": "architecture", "artifact": "quant_control/", "promotion_approval_recorded": false},
+    {"name": "plan", "artifact": "experiments/quant_control_plan.json", "promotion_approval_recorded": false},
+    {"name": "build", "artifact": "tests/test_quant_control.py", "promotion_approval_recorded": false},
+    {"name": "review", "artifact": "reports/local/quant-control/review-latest.json", "promotion_approval_recorded": false},
+    {"name": "ship", "allowed_scope": "OBSERVE_ONLY", "paid_provider_and_trading_approved": false}
+  ],
+  "fundamental_research": {"status": "NOT_CONNECTED", "unlocks": null, "revenue": null, "tvl": null, "holder_concentration": null, "approved_finalists": []},
+  "note": "Engineering upgrade is authorized by the user. Promotion approval is separate and is never fabricated by this artifact. This document does not override code limits."
+}

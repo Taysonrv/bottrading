@@ -268,3 +268,12 @@ ctx.renderV3({single_exit:{scope:'SINGLE_EXIT_FIXED_HYPOTHESIS_RESEARCH',verdict
 assert.match(element('single-exit-research').innerHTML,/REJECTED/);
 assert.match(element('single-exit-research').innerHTML,/55/);assert.match(element('single-exit-research').innerHTML,/BLOQUEADA/);
 console.log('OK: single-exit losses are research only and never displayed as active wallet equity.');
+ctx.renderQuant({});assert.match(element('quant-mode').textContent,/Aguardando/);
+ctx.renderQuant({available:true,fresh:true,report:{reason:'OBSERVING',pairs:[{symbol:'BTC/USDT',status:'OK',
+ snapshot:{numeric:{mid:100,spr:0,imb:0,rv:0,dd:0,dl:null},bytes:220},
+ policy:{action:'REVIEW_REQUIRED',confidence:null,gates_failed:['SESSION_ACTIVE','PROVIDER_CALIBRATED']}}]},
+ review:{scope:'FULL_SESSION_RESEARCH_REVIEW',completed:4,account:{fills:0},mature_labels:0,brier:null,calibration_status:'UNMEASURED_NO_REAL_PROVIDER'}});
+assert.match(element('quant-mode').textContent,/IA desativada/);assert.match(element('quant-gates').innerHTML,/Sessão expirada/);
+assert.match(element('quant-gates').innerHTML,/—/);assert.match(element('quant-review').innerHTML,/UNMEASURED/);
+assert.match(element('quant-review').innerHTML,/DESATIVADOS/);
+console.log('OK: quantitative control keeps real zeros, unknown confidence/Brier and execution gates distinct.');
