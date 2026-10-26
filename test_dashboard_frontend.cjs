@@ -277,3 +277,9 @@ assert.match(element('quant-mode').textContent,/IA desativada/);assert.match(ele
 assert.match(element('quant-gates').innerHTML,/—/);assert.match(element('quant-review').innerHTML,/UNMEASURED/);
 assert.match(element('quant-review').innerHTML,/DESATIVADOS/);
 console.log('OK: quantitative control keeps real zeros, unknown confidence/Brier and execution gates distinct.');
+ctx.renderSingleExitAudit({});assert.match(element('single-exit-audit').innerHTML,/ainda não carregada/);
+ctx.renderSingleExitAudit({baseline_reproduced:true,run_id:'unit',scenarios:[{name:'<base>',summary:{trades:55,net_pnl:'-1.8795837367'},by_exit_reason:[{reason:'STOP',trades:25,net_pnl:'-3.2522595656'}],trades:[{entry_utc:'<script>',reason:'STOP',quantity:'0.001',net_pnl:'-0.13'}]}]});
+assert.match(element('single-exit-audit').innerHTML,/55/);
+assert.match(element('single-exit-audit').innerHTML,/Diário histórico/);
+assert.ok(!element('single-exit-audit').innerHTML.includes('<script>'));
+console.log('OK: offline audit journal renders losses and escapes external text.');

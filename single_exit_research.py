@@ -87,7 +87,10 @@ def proposal(rules,cash,equity,ask,remaining,*,fee=D('.001'),slip=D('.001')):
 
 
 @decimal_policy
-def run(history,rules,*,fee=D('.001'),slip=D('.001')):
+def run(history,rules,*,fee=D('.001'),slip=D('.001'),audit=None):
+    if audit is not None and not callable(audit):raise ValueError('AUDIT_CALLBACK_REQUIRED')
+    def emit(kind,**fields):
+        if audit is not None:audit(dict(kind=kind,**fields))
     if history.timeframe!='1h' or history.symbol!=rules.symbol:raise ValueError('MATCHING_HOURLY_DATA_REQUIRED')
     p=Policy();cfg=replace(load_settings({}),mode='backtest',symbol=history.symbol,timeframe='1h',
         capital=p.capital,max_order_notional=p.budget,stop_loss_fraction=p.stop,take_profit_fraction=p.target,
@@ -102,14 +105,19 @@ def run(history,rules,*,fee=D('.001'),slip=D('.001')):
     pos=None;trades=[];returns=[];fees=D(0);max_dd=D(0);candidates=0;rejects=Counter();exit_blocks=0
     def mark(price):
         return cash+(D(pos['quantity'])*floor(price*(1-slip),rules.price_tick)*(1-fee) if pos else D(0))
-    def sell(price,reason,timestamp):
+    def sell(price,reason,timestamp,reference):
         nonlocal cash,pos,fees,exit_blocks
         q=D(pos['quantity'])
-        if not filters(rules,q,price):exit_blocks+=1;return False
+        if not filters(rules,q,price):
+            exit_blocks+=1
+            emit('EXIT_BLOCKED',entry_ms=pos['opened_ms'],time_ms=timestamp,reason=reason,price=str(price))
+            return False
         charge=q*price*fee;proceeds=q*price-charge;pnl=proceeds-D(pos['cost'])
         cash+=proceeds;fees+=charge
         trades.append(dict(entry_ms=pos['opened_ms'],exit_ms=timestamp,entry=pos['entry'],
             exit=str(price),quantity=str(q),pnl=str(pnl),reason=reason,approved=False))
+        emit('EXIT',entry_ms=pos['opened_ms'],time_ms=timestamp,reason=reason,price=str(price),
+             reference=str(reference),quantity=str(q),fee=str(charge),pnl=str(pnl),cash=str(cash))
         pos=None;return True
     bars=history.candles
     for i in range(warmup,len(bars)):
@@ -119,30 +127,40 @@ def run(history,rules,*,fee=D('.001'),slip=D('.001')):
         peak=max(peak,equity);daily_halt|=equity<=day_base*(1-p.daily);dd_halt|=equity<=peak*(1-p.drawdown)
         if had_position:
             pos['bars']+=1;stop=D(pos['stop']);target=D(pos['target'])
-            if o<=stop:sell(floor(o*(1-slip),rules.price_tick),'STOP_GAP',b.open_ms)
-            elif daily_halt or dd_halt:sell(floor(o*(1-slip),rules.price_tick),'RISK_EXIT',b.open_ms)
+            if o<=stop:sell(floor(o*(1-slip),rules.price_tick),'STOP_GAP',b.open_ms,o)
+            elif daily_halt or dd_halt:sell(floor(o*(1-slip),rules.price_tick),'RISK_EXIT',b.open_ms,o)
         elif signals[i-1].action=='ENTER_LONG':
             candidates+=1
-            if daily_halt or dd_halt:rejects['RISK_HALT']+=1
+            if daily_halt or dd_halt:
+                rejects['RISK_HALT']+=1
+                emit('REJECTION',time_ms=b.open_ms,reason='RISK_HALT')
             else:
                 remaining=max(D(0),min(equity-day_base*(1-p.daily),equity-peak*(1-p.drawdown)))
                 plan=proposal(rules,cash,equity,o,remaining,fee=fee,slip=slip)
-                if plan['reason']!='HYPOTHETICAL_PLAN':rejects[plan['reason']]+=1
+                if plan['reason']!='HYPOTHETICAL_PLAN':
+                    rejects[plan['reason']]+=1
+                    emit('REJECTION',time_ms=b.open_ms,reason=plan['reason'])
                 else:
                     pos=dict(plan,opened_ms=b.open_ms,bars=1)
                     cash-=D(plan['cost']);fees+=D(plan['quantity'])*D(plan['entry'])*fee
+                    emit('ENTRY',entry_ms=b.open_ms,reference=str(o),plan=dict(plan),
+                         fee=str(D(plan['quantity'])*D(plan['entry'])*fee),cash=str(cash),
+                         signal_ms=signals[i-1].decision_ms if hasattr(signals[i-1],'decision_ms') else None,
+                         signal_atr_fraction=getattr(signals[i-1],'atr_fraction',None))
         if pos:
             stop=D(pos['stop']);target=D(pos['target'])
+            emit('RANGE',entry_ms=pos['opened_ms'],bar_ms=b.open_ms,low=str(b.low),high=str(b.high),
+                 ambiguous_stop_target=D(str(b.low))<=stop and D(str(b.high))>=target)
             if D(str(b.low))<=stop:
-                sell(floor(min(o,stop)*(1-slip),rules.price_tick),'STOP',b.open_ms+3600000)
+                sell(floor(min(o,stop)*(1-slip),rules.price_tick),'STOP',b.open_ms+3600000,min(o,stop))
             elif D(str(b.high))>=target:
-                sell(floor(target*(1-slip),rules.price_tick),'TARGET',b.open_ms+3600000)
+                sell(floor(target*(1-slip),rules.price_tick),'TARGET',b.open_ms+3600000,target)
             elif pos['bars']>=p.max_bars:
-                sell(floor(c*(1-slip),rules.price_tick),'TIME_STOP',b.open_ms+3600000)
+                sell(floor(c*(1-slip),rules.price_tick),'TIME_STOP',b.open_ms+3600000,c)
         equity=mark(c);peak=max(peak,equity);max_dd=max(max_dd,1-equity/peak)
         daily_halt|=equity<=day_base*(1-p.daily);dd_halt|=max_dd>=p.drawdown
         returns.append(float(equity/previous-1));previous=equity
-    if pos:sell(floor(D(str(bars[-1].close))*(1-slip),rules.price_tick),'END_LIQUIDATION',history.end_ms)
+    if pos:sell(floor(D(str(bars[-1].close))*(1-slip),rules.price_tick),'END_LIQUIDATION',history.end_ms,D(str(bars[-1].close)))
     equity=mark(D(str(bars[-1].close)));net=sum((D(t['pnl']) for t in trades),D(0))
     book_cost=D(pos['cost']) if pos else D(0)
     if abs(cash+book_cost-p.capital-net)>D('1e-60'):raise ValueError('CASHFLOW_MISMATCH')

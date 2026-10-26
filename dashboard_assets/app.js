@@ -660,6 +660,7 @@ if(typeof window!=='undefined')setupWorkspace();
 // Reuses the authenticated status poll; no new timer, execution route or mock.
 function renderV3(view){
  if(!$('v3-health'))return;
+ renderSingleExitAudit(view.single_exit_audit||{});
  const r=view.report||{},wait='Aguardando dados do motor V3...';
  const one=view.single_exit||{};
  if($('single-exit-research'))$('single-exit-research').innerHTML=one.scope?'<p>Veredito: <strong>'+escape(one.verdict)+'</strong> · Execução BLOQUEADA</p>'+table(['Cenário','Patrimônio fictício final','Retorno líquido','Ciclos','Profit factor','DD máximo','Retornos dos 4 períodos'],(one.scenarios||[]).map(s=>[escape(s.name),number(s.continuous.final_equity==null?NaN:Number(s.continuous.final_equity))+' USDT',percent(s.continuous.net_return),number(s.continuous.closed_trades,0),number(s.continuous.profit_factor),percent(s.continuous.max_drawdown),escape((s.windows||[]).map(w=>percent(w.net_return)).join(' / '))])):empty('Teste de saída única ainda não carregado.');
@@ -677,6 +678,16 @@ function renderV3(view){
  const shadows=Array.isArray(view.shadow_recent)?view.shadow_recent:[];
  $('v3-shadow').innerHTML=shadows.length?'<p>Concordância no recorte: '+escape(percent(view.agreement_recent))+' · '+shadows.length+' registros</p>'+table(['Horário','Par','Julgamento','Motivo'],shadows.slice(0,20).map(s=>[escape(date(s.timestamp_ms/1000)),escape(s.v3_signal?.symbol),escape(s.shadow_judgment?.action||s.status),escape(s.shadow_judgment?.reason||'Indisponível')])):empty('Nenhum julgamento shadow registrado.');
  $('v3-session').innerHTML=table(['Métrica','Valor'],[['Modo','PAPER / EXPERIMENTAL / OBSERVE ONLY'],['Cobertura recente neste processo',number(r.forward_observation_hours)+' h'],['48h de cobertura',r.observed_48h===true?'Registradas; ainda sem autorização':'Pendente'],['Revisão humana de dez sinais','Pendente'],['Carteira / PnL','Não aplicável: observador sem carteira'],['Execução','BLOQUEADA']]);
+}
+
+function renderSingleExitAudit(a){
+ const el=$('single-exit-audit');if(!el)return;
+ if(!a.baseline_reproduced){el.innerHTML=empty('Auditoria offline ainda não carregada.');return;}
+ if(el.dataset&&el.dataset.runId===a.run_id)return;
+ const money=v=>number(v==null?NaN:Number(v),6);
+ const scenarios=Array.isArray(a.scenarios)?a.scenarios:[];
+ el.innerHTML=scenarios.map(s=>'<h3>'+escape(s.name)+'</h3>'+table(['Saída','Ciclos','Referência USDT','Slippage + ticks','Taxas','Líquido USDT'],[...(s.by_exit_reason||[]),{reason:'TOTAL',...s.summary}].map(r=>[escape(r.reason),number(r.trades,0),money(r.reference_price_pnl),money(r.execution_impact),money(r.fees),money(r.net_pnl)]))+'<details><summary>Diário histórico: '+escape(s.summary?.trades)+' ciclos</summary>'+table(['Entrada UTC','Saída UTC','Motivo','Quantidade','Compra','Venda','Líquido USDT'],(s.trades||[]).map(t=>[escape(t.entry_utc),escape(t.exit_utc),escape(t.reason),escape(t.quantity),money(t.entry),money(t.exit),money(t.net_pnl)]))+'</details>').join('');
+ if(el.dataset&&a.run_id)el.dataset.runId=a.run_id;
 }
 
 function renderQuant(view){
