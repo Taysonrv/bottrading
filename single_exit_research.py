@@ -87,7 +87,7 @@ def proposal(rules,cash,equity,ask,remaining,*,fee=D('.001'),slip=D('.001')):
 
 
 @decimal_policy
-def run(history,rules,*,fee=D('.001'),slip=D('.001'),audit=None):
+def run(history,rules,*,fee=D('.001'),slip=D('.001'),audit=None,signal_generator=None):
     if audit is not None and not callable(audit):raise ValueError('AUDIT_CALLBACK_REQUIRED')
     def emit(kind,**fields):
         if audit is not None:audit(dict(kind=kind,**fields))
@@ -97,7 +97,10 @@ def run(history,rules,*,fee=D('.001'),slip=D('.001'),audit=None):
         ema_fast=20,ema_slow=50,ema_trend=200,atr_period=14,
         atr_min_fraction=D('.001'),atr_max_fraction=D('.05'),risk_per_trade=p.risk,
         daily_loss_limit=p.daily,max_drawdown=p.drawdown,max_positions=1)
-    signals=analyze(history,cfg);warmup=600
+    generator=analyze if signal_generator is None else signal_generator
+    if not callable(generator):raise ValueError('SIGNAL_GENERATOR_REQUIRED')
+    signals=generator(history,cfg);warmup=600
+    if len(signals)!=len(history.candles):raise ValueError('SIGNAL_COUNT_MISMATCH')
     if len(signals)<=warmup:raise ValueError('INSUFFICIENT_WARMUP')
     for v in (fee,slip):amount(v)
     if fee>D('.01') or slip>D('.01'):raise ValueError('COST_LIMIT')
@@ -178,19 +181,19 @@ def run(history,rules,*,fee=D('.001'),slip=D('.001'),audit=None):
         fee_rate=str(fee),slippage_rate=str(slip),approved=False,execution_authorized=False)
 
 
-def evaluate(history,rules):
+def evaluate(history,rules,*,signal_generator=None):
     hours=hourly(history);warmup=600;remaining=len(hours.candles)-warmup
     if remaining<4*warmup:raise ValueError('FOUR_SUBSTANTIAL_WINDOWS_REQUIRED')
     scenarios=[]
     for name,multiplier in [('base',1),('double_costs',2)]:
         fee=slip=D('.001')*multiplier
-        full=run(hours,rules,fee=fee,slip=slip);full.pop('trades')
+        full=run(hours,rules,fee=fee,slip=slip,signal_generator=signal_generator);full.pop('trades')
         windows=[]
         for i in range(4):
             start=warmup+remaining*i//4;end=warmup+remaining*(i+1)//4
             bars=hours.candles[start-warmup:end]
             part=History(hours.symbol,'1h',bars[0].open_ms,bars[-1].open_ms+3600000,hours.observed_ms,bars,0,0)
-            row=run(part,rules,fee=fee,slip=slip);row.pop('trades')
+            row=run(part,rules,fee=fee,slip=slip,signal_generator=signal_generator);row.pop('trades')
             windows.append(dict(start_ms=hours.candles[start].open_ms,end_ms=part.end_ms,**row))
         scenarios.append(dict(name=name,continuous=full,windows=windows))
     base=scenarios[0];positive=sum(w['net_return']>0 for w in base['windows'])
