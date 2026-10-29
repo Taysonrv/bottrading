@@ -13,12 +13,16 @@ from .selection import preview, choose
 SYMBOLS = ('BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'DOGE/USDT')
 
 
-def scan(client, now_ms, timeframe='15m'):
+def scan(client, now_ms, timeframe='15m', *, symbols=SYMBOLS):
+    if not isinstance(symbols,tuple) or not 1<=len(symbols)<=20 or len(set(symbols))!=len(symbols):
+        raise ValueError('INVALID_SYMBOL_UNIVERSE')
     cfg = load_settings({'TRADING_TIMEFRAME': timeframe})
+    # Validate the entire universe before any network request.
+    for symbol in symbols:replace(cfg,symbol=symbol)
     step = STEPS[cfg.timeframe]
     cutoff = now_ms // step * step
     rows = []
-    for symbol in SYMBOLS:
+    for symbol in symbols:
         try:
             settings = replace(cfg, symbol=symbol)
             history = download(client, symbol, cfg.timeframe, cutoff-620*step, cutoff)
