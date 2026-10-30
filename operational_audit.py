@@ -40,6 +40,7 @@ def load(root,now_ms=None):
     events=recent_events(folder/'supervisor-events.jsonl')
     gaps=[r for r in events if r.get('kind')=='PREVIOUS_RUN_WITHOUT_SHUTDOWN_RECORD']
     result=dict(state=state,updated_ms=now,controller_age_seconds=ca,engine_age_seconds=ea,
+        external_guard=read(folder/'external-guard.json'),
         radar_age_seconds=ra,execution_reason=status.get('reason'),deadline_ms=end,
         last_unexplained_gap=gaps[-1] if gaps else None,recent_events=events,
         recovery_attempts=control.get('recovery_attempts',{}),execution_authorized=False,
