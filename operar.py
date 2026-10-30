@@ -72,7 +72,10 @@ def lifecycle(children,session):
 def commands(root,port,engine='ema',v3_observe=False):
     observer=[('v3_observer',[sys.executable,'-u','-m','v3_engine.live','--data-dir',str(root),'--hours','48'],ROOT)] if v3_observe else []
     if engine=='portfolio':
-        return [('execution',[sys.executable,'-u','-m','spot_engine.portfolio_run','--data-dir',str(root),'--start'],ROOT),
+        from portfolio_backend import factory
+        factory(root)  # Reject an invalid explicit profile before launching children.
+        runner='portfolio12_run' if (root/'portfolio12.json').exists() else 'spot_engine.portfolio_run'
+        return [('execution',[sys.executable,'-u','-m',runner,'--data-dir',str(root),'--start'],ROOT),
                 ('dashboard',[sys.executable,'-u',str(ROOT/'dashboard.py'),'--port',str(port),'--data-dir',str(root)],ROOT)]+observer
     return [('execution',[sys.executable,'-u','-m','spot_engine.main','paper','--session','ema20','--hours','24','--order-budget','6'],root),
             ('market',[sys.executable,'-u','-m','spot_engine.scanner','--timeframe','15m','--output',str(root/'reports/local/multipair.json')],ROOT),

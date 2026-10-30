@@ -5,12 +5,15 @@ import json
 from pathlib import Path
 import sqlite3
 import time
+from portfolio_backend import factory
 from spot_engine.portfolio import Portfolio
 from system_status import read
 
 
 def load(root,now=None):
-    broker=Portfolio(root);now=time.time() if now is None else now
+    try:broker=factory(root)
+    except (OSError,ValueError):return dict(available=False,reason='INVALID_PORTFOLIO_PROFILE')
+    now=time.time() if now is None else now
     if not broker.path.exists():return dict(available=False,reason='NOT_STARTED')
     try:
         with closing(sqlite3.connect(broker.path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:

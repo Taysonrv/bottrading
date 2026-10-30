@@ -3,6 +3,7 @@ import json
 import math
 from pathlib import Path
 import time
+from portfolio_backend import symbols
 
 
 def read(path):
@@ -27,13 +28,15 @@ def build(root,now=None):
         delta=now-value/1000
         return delta if delta>=0 else None
     pairs=market.get('pairs')
-    valid_pairs=isinstance(pairs,list) and len(pairs)==6 and all(isinstance(p,dict) and p.get('status')=='OK' for p in pairs)
+    try:universe=symbols(root)
+    except (OSError,ValueError):universe=()
+    valid_pairs=bool(universe) and isinstance(pairs,list) and len(pairs)==len(universe) and all(isinstance(p,dict) and p.get('status')=='OK' for p in pairs) and {p.get('symbol') for p in pairs}==set(universe)
     ea=age(ema.get('updated_ms'));ma=age(market.get('updated_ms'));sa=age(supervisor.get('updated_ms'))
     return dict(mode='PAPER',real_orders_enabled=False,multipair_execution_enabled=portfolio_mode and ea is not None and ea<60 and ema.get('phase')=='RUNNING',
                 controller=dict(engine=supervisor.get('engine','ema'),phase=supervisor.get('phase','NOT_STARTED'),fresh=sa is not None and sa<30 and supervisor.get('phase')=='RUNNING',age_seconds=sa),
-                execution=dict(symbol='SHARED_6_PAIRS' if portfolio_mode else 'BTC/USDT',timeframe='15m' if portfolio_mode else '1h',fresh=ea is not None and ea<60 and ema.get('phase')=='RUNNING',age_seconds=ea,
+                execution=dict(symbol=('SHARED_'+str(len(universe))+'_PAIRS') if portfolio_mode else 'BTC/USDT',timeframe='15m' if portfolio_mode else '1h',fresh=ea is not None and ea<60 and ema.get('phase')=='RUNNING',age_seconds=ea,
                                phase=ema.get('phase','NOT_STARTED'),reason=ema.get('reason'),end_ms=ema.get('end_ms')),
-                market=dict(symbols=['BTC/USDT','ETH/USDT','SOL/USDT','BNB/USDT','XRP/USDT','DOGE/USDT'],timeframe=market.get('timeframe','15m'),
+                market=dict(symbols=list(universe),timeframe=market.get('timeframe','15m'),
                             fresh=ma is not None and ma<180 and valid_pairs,age_seconds=ma),
                 research=dict(role='OFFLINE_ONLY',execution_authorized=False),
                 kronos=dict(role='OBSERVATION_ONLY',execution_authorized=False),

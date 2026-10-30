@@ -11,6 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 import time
+from portfolio_backend import factory
 from spot_engine.portfolio import Portfolio
 from spot_engine.execution import digest
 from spot_engine.main import save,single_runner
@@ -20,7 +21,7 @@ from system_status import read
 
 @decimal_policy
 def ledger(root):
-    broker=Portfolio(root)
+    broker=factory(root)
     with closing(sqlite3.connect(broker.path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
         row=db.execute('SELECT payload FROM ledger WHERE id=1').fetchone()
         if not row or len(row[0])>16000000:raise ValueError('LEDGER_LIMIT')
