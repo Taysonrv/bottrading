@@ -1,0 +1,10 @@
+{
+  "registered_utc": "2026-10-30T13:58:47.160000+00:00",
+  "start_utc": "2026-10-30T15:00:00+00:00",
+  "end_utc": "2026-11-29T15:00:00+00:00",
+  "protocol_sha256": "4a89111569103b753a3a3841cda7f29f2daff96acdd12c1053928a369a74dc2b",
+  "hypothesis_id": "DONCHIAN20_BTC1H_RESEARCH_V1",
+  "execution_authorized": false,
+  "external_notarization": false,
+  "purpose": "Public hash reference for a local prospective data protocol; not strategy validation"
+}

@@ -17,6 +17,7 @@ from spot_engine.data import load_history
 from spot_engine.risk import Rules
 from session_performance import load as performance
 from system_status import read
+from prospective_protocol import view as prospective_view
 
 ROOT=Path(__file__).resolve().parent
 SOURCES=(('ema15_rolling','EMA/ATR 15m — janelas móveis','rolling-20261024-summary.json'),
@@ -82,6 +83,10 @@ def brief(report):
         'Estado da coleta: '+str(macro.get('status','NOT_COLLECTED')),
         'Publicações verificadas no recorte salvo: '+str(macro.get('total_verified_items','UNKNOWN')),
         'Essa referência não é sinal de trading, sentimento de X ou calendário de eventos futuros.','']
+    future=report.get('prospective_protocol',{})
+    lines+=['## Reserva prospectiva',
+        'Estado: '+str(future.get('status','NOT_REGISTERED'))+'; candles futuros: '+str(future.get('future_bars','UNKNOWN')),
+        'Coleta de dados sem ordens; janela futura não significa estratégia validada.','']
     for item in report['evaluations']:
         lines+=['## '+item['title'], 'Estado: '+item['status'],
             'Métricas da amostra: '+json.dumps(item['metrics'],ensure_ascii=False,allow_nan=False),
@@ -136,6 +141,7 @@ def run(root,csv_path=None,collect_macro=False):
         generated_utc=datetime.fromtimestamp(now/1000,timezone.utc).isoformat(),mode=manifest['mode'],
         evaluations=evaluations,approved_strategies=[],winner=None,builder_status='BLOCKED_NO_VALIDATED_STRATEGY',
         source_provenance=provenance,replay_artifacts=replay_artifacts,source_hashes=manifest['source_hashes'],paper_session=performance(root,now),
+        prospective_protocol=prospective_view(root,now),
         macro_context=dict(status=macro.get('status','NOT_COLLECTED'),as_of_ms=macro.get('as_of_ms'),run_id=macro.get('run_id'),
             total_verified_items=macro.get('total_verified_items'),sources=macro.get('sources',[]),used_as_signal=False),
         market_context=dict(saved_radar_updated_ms=read(root/'reports/local/portfolio/radar.json').get('updated_ms'),

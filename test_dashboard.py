@@ -44,6 +44,13 @@ class DashboardTests(unittest.TestCase):
     def test_status_requires_authentication(self):
         self.assertEqual(self.request('GET', '/api/status')[0], 401)
 
+    def test_prospective_metadata_requires_authentication_and_integrity(self):
+        self.assertEqual(self.request('GET','/api/prospective.json')[0],401)
+        headers=self.login()
+        self.assertEqual(self.request('GET','/api/prospective.json',headers=headers)[0],404)
+        with patch.object(dashboard.prospective_protocol,'view',return_value={'available':False,'status':'PROTOCOL_INTEGRITY_ERROR'}):
+            self.assertEqual(self.request('GET','/api/prospective.json',headers=headers)[0],503)
+
     def test_macro_export_requires_login_and_saved_snapshot(self):
         self.assertEqual(self.request('GET','/api/macro-scout.json')[0],401)
         headers=self.login();self.assertEqual(self.request('GET','/api/macro-scout.json',headers=headers)[0],404)

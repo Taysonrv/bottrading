@@ -29,6 +29,7 @@ import operational_audit
 import session_performance
 import paper_export
 import sqlite3
+import prospective_protocol
 
 ASSETS = Path(__file__).resolve().parent / 'dashboard_assets'
 
@@ -160,7 +161,7 @@ def snapshot(root):
         validation_exists=bool(validation), validation_current=current, validation_passed=validation.get('portfolio_passed', False),
         observation_exists=bool(observed), observation_current=observation_current,
         activity_recent=recent, performance_exists=bool(state.get('performance')))
-    return {'macro_scout':read(root,'reports/local/macro-scout/latest.json'),'research_desk':read(root,'reports/local/research-desk/latest.json'),'paper12_feasibility':read(root,'reports/local/paper12-feasibility/latest.json'),'upgrade_readiness':read(root,'reports/local/upgrade-readiness/latest.json'),'session_performance':session_performance.load(root),'operational_audit':operational_audit.load(root),'quant_control':quant_view.load(root),'v3':v3_view.load(root),'operation_health':read(root,'reports/local/operation-health.json'),'external_context':read(root,'reports/local/external-context.json'),'portfolio':portfolio_view.load(root),'system':system_status.build(root),'kronos_lab':kronos_view.load(root),'spot_research':spot_research_view.load(root),'multipair':read(root,'reports/local/portfolio/radar.json' if read(root,'reports/local/system-run.json').get('engine')=='portfolio' else 'reports/local/multipair.json'),'ema':ema_view.load(root),'ai_shadow':shadow_view.load(root),'session_audit':session_audit.build(read(root,'reports/local/live-small-paper.json')),'research_registry':read(root,'reports/local/research-registry.json'),'coingecko':read(root,'reports/local/coingecko-context.json'),'market_stream':read(root,'reports/local/market-stream.json'),'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
+    return {'prospective_protocol':prospective_protocol.view(root),'macro_scout':read(root,'reports/local/macro-scout/latest.json'),'research_desk':read(root,'reports/local/research-desk/latest.json'),'paper12_feasibility':read(root,'reports/local/paper12-feasibility/latest.json'),'upgrade_readiness':read(root,'reports/local/upgrade-readiness/latest.json'),'session_performance':session_performance.load(root),'operational_audit':operational_audit.load(root),'quant_control':quant_view.load(root),'v3':v3_view.load(root),'operation_health':read(root,'reports/local/operation-health.json'),'external_context':read(root,'reports/local/external-context.json'),'portfolio':portfolio_view.load(root),'system':system_status.build(root),'kronos_lab':kronos_view.load(root),'spot_research':spot_research_view.load(root),'multipair':read(root,'reports/local/portfolio/radar.json' if read(root,'reports/local/system-run.json').get('engine')=='portfolio' else 'reports/local/multipair.json'),'ema':ema_view.load(root),'ai_shadow':shadow_view.load(root),'session_audit':session_audit.build(read(root,'reports/local/live-small-paper.json')),'research_registry':read(root,'reports/local/research-registry.json'),'coingecko':read(root,'reports/local/coingecko-context.json'),'market_stream':read(root,'reports/local/market-stream.json'),'live_small':read(root,'reports/local/live-small-paper.json'),'metamask':metamask_view.load(root),'as_of': time.time(), 'mode': 'paper', 'diagnostics': health, 'stop': (root / 'STOP').exists(),
             'halted': state.get('halted', False),
             'activity': {'recent': 0 <= age <= 180 and heartbeat.get('phase') != 'stopped',
                          'time': heartbeat.get('time'), 'phase': heartbeat.get('phase'), 'command': heartbeat.get('command')},
@@ -301,6 +302,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/macro-scout.json':
             report=read(self.server.root,'reports/local/macro-scout/latest.json')
             if not report:return self.send(404,{'error':'Coleta macro ainda não produzida'})
+            return self.send(200,report)
+        if path == '/api/prospective.json':
+            report=prospective_protocol.view(self.server.root)
+            if not report['available']:return self.send(404 if report['status']=='NOT_REGISTERED' else 503,report)
             return self.send(200,report)
         if path == '/api/live-market':
             symbol=parse_qs(urlsplit(self.path).query).get('symbol',[''])[0]

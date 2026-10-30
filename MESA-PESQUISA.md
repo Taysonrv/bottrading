@@ -22,7 +22,7 @@ O resumo inclui resultados conhecidos, causas possíveis de falha, estado da ses
 
 ## O que ainda falta
 
-Cobertura ampliada além dos três RSS oficiais macro; registro prospectivo de hipóteses antes de avaliar dados futuros; testes de dependência/seleção múltipla e Monte Carlo de drawdown; agenda, entrega às07h30 e revisão semanal; infraestrutura sempre disponível. Nada disso foi agendado nesta etapa. O parâmetro `--collect-macro` já coleta as publicações oficiais com datas e hashes; elas não alteram os testes ou sinais. Nenhuma mensagem externa, conexão de conta ou chamada de IA paga é realizada.
+Cobertura ampliada além dos três RSS oficiais macro; avaliação das janelas prospectivas registradas; testes de dependência/seleção múltipla e Monte Carlo de drawdown; agenda, entrega às07h30 e revisão semanal; infraestrutura sempre disponível. O registro local e a coleta manual futura já estão em `prospective_protocol.py`, separados da carteira e sem promoção automática. Nada disso foi agendado nesta etapa. O parâmetro `--collect-macro` coleta publicações oficiais com datas e hashes; elas não alteram os testes ou sinais. Nenhuma mensagem externa, conexão de conta ou chamada de IA paga é realizada.
 
 ```powershell
 python -m unittest tests.test_research_desk -v
