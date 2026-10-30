@@ -291,3 +291,9 @@ ctx.renderOperationalAudit({state:'RECENT_REPORTS',engine_age_seconds:0,controll
 assert.match(element('operational-audit-trades').innerHTML,/Sinal de saída/);
 assert.match(element('operational-audit-trades').innerHTML,/-0[,.]127135/);
 console.log('OK: operational audit separates stale evidence, unknown results, realized losses and actual exit reasons.');
+ctx.renderSessionPerformance({available:false});assert.match(element('session-performance-report').innerHTML,/não confirmado/);
+ctx.renderSessionPerformance({available:true,equity:'19.87286458',realized:'-0.12713542',fees:'0.01171542',closed_cycles:1,coverage:{elapsed_seconds:100,recent_seconds:40,stopped_seconds:0,unknown_seconds:60}});
+assert.match(element('session-performance-report').innerHTML,/Tempo desconhecido/);
+assert.match(element('session-performance-report').innerHTML,/-0[,.]127135/);
+assert.match(element('session-performance-report').innerHTML,/Amostra insuficiente/);
+console.log('OK: complete session performance keeps unknown coverage and insufficient evidence explicit.');

@@ -96,7 +96,7 @@ async function api(path, body){const response=await fetch(path,{method:body?'POS
 function showLogin(){clearInterval(timer);$('login').hidden=false;$('app').hidden=true;csrf='';}
 function showApp(){ $('login').hidden=true;$('app').hidden=false;clearInterval(timer);timer=setInterval(refresh,10000); }
 function drawChart(points){const chart=$('chart');if(points.length<2){chart.innerHTML=empty('O histórico começa com a simulação.','São necessárias duas medições de patrimônio para desenhar a evolução.');$('chart-period').textContent='Aguardando medições';return;}const values=points.map(p=>p.equity),min=Math.min(...values),max=Math.max(...values),range=max-min||Math.max(1,Math.abs(max)*.01),w=700,h=170;const coords=values.map((v,i)=>[i/(values.length-1)*w,20+(max-v)/range*(h-35)]);const path=coords.map((p,i)=>(i?'L':'M')+p.map(n=>n.toFixed(2)).join(',')).join(' ');chart.innerHTML=`<svg viewBox="-5 0 710 190" role="img" aria-label="Histórico de patrimônio simulado"><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b4f8cc" stop-opacity=".16"/><stop offset="100%" stop-color="#b4f8cc" stop-opacity="0"/></linearGradient></defs>${[35,85,135,180].map(y=>`<path d="M0 ${y} H700" stroke="#25375c" stroke-dasharray="3 6"/>`).join('')}<path d="${path} L700 185 L0 185 Z" fill="url(#shade)"/><path d="${path}" fill="none" stroke="#b4f8cc" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4" fill="#b4f8cc"/></svg>`;$('chart-period').textContent=`${points.length} medições · ${number(min)} — ${number(max)}`;}
-function render(data){renderOperationalAudit(data.operational_audit||{});renderQuant(data.quant_control||{});renderV3(data.v3||{});if(data.system?.controller?.engine==='portfolio'&&!$('overview').hidden)document.querySelector('[data-view="terminal"]').click();renderPortfolio(data.portfolio||{});renderSystemIntegration(data.system||{});renderKronos(data.kronos_lab||{});renderSpotResearch(data.spot_research||{});renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
+function render(data){renderSessionPerformance(data.session_performance||{});renderOperationalAudit(data.operational_audit||{});renderQuant(data.quant_control||{});renderV3(data.v3||{});if(data.system?.controller?.engine==='portfolio'&&!$('overview').hidden)document.querySelector('[data-view="terminal"]').click();renderPortfolio(data.portfolio||{});renderSystemIntegration(data.system||{});renderKronos(data.kronos_lab||{});renderSpotResearch(data.spot_research||{});renderShadow(data.ai_shadow||{});renderAudit(data.session_audit||{},data.research_registry||{});renderCoinGecko(data.coingecko||{});if(typeof renderMetamask==='function') renderMetamask(data.metamask);const active=data.activity.recent&&!data.stop;
  const lab=data.paper_lab||{},lp=lab.performance||{};
  labMarketState=lab;
  const exitTrial=data.exit_trial||{comparisons:[]};
@@ -688,6 +688,22 @@ function renderSingleExitAudit(a){
  const scenarios=Array.isArray(a.scenarios)?a.scenarios:[];
  el.innerHTML=scenarios.map(s=>'<h3>'+escape(s.name)+'</h3>'+table(['Saída','Ciclos','Referência USDT','Slippage + ticks','Taxas','Líquido USDT'],[...(s.by_exit_reason||[]),{reason:'TOTAL',...s.summary}].map(r=>[escape(r.reason),number(r.trades,0),money(r.reference_price_pnl),money(r.execution_impact),money(r.fees),money(r.net_pnl)]))+'<details><summary>Diário histórico: '+escape(s.summary?.trades)+' ciclos</summary>'+table(['Entrada UTC','Saída UTC','Motivo','Quantidade','Compra','Venda','Líquido USDT'],(s.trades||[]).map(t=>[escape(t.entry_utc),escape(t.exit_utc),escape(t.reason),escape(t.quantity),money(t.entry),money(t.exit),money(t.net_pnl)]))+'</details>').join('');
  if(el.dataset&&a.run_id)el.dataset.runId=a.run_id;
+}
+
+function renderSessionPerformance(s){
+ const el=$('session-performance-report');if(!el)return;
+ if(!s.available){el.innerHTML=empty('Relatório indisponível; resultado não confirmado.');return;}
+ const c=s.coverage||{},money=v=>v==null?'—':number(Number(v),6)+' USDT';
+ const hours=v=>typeof v==='number'?number(v/3600,2)+' h':'—';
+ el.innerHTML=table(['Métrica da sessão','Valor'],[
+ ['Patrimônio marcado',money(s.equity)],['Realizado líquido',money(s.realized)],
+ ['Não realizado estimado líquido',money(s.unrealized_net)],['Taxas já descontadas',money(s.fees)],
+ ['Retorno líquido',percent(s.net_return)],['Ciclos fechados',number(s.closed_cycles,0)],
+ ['Win rate descritivo',percent(s.win_rate)],['Profit factor descritivo',number(s.profit_factor)],
+ ['Sharpe / máximo drawdown','Não reconstruídos sem curva contínua'],
+ ['Tempo decorrido no prazo',hours(c.elapsed_seconds)],['Tempo com amostras recentes',hours(c.recent_seconds)],
+ ['Tempo parado observado',hours(c.stopped_seconds)],['Tempo desconhecido',hours(c.unknown_seconds)],
+ ['Estado',escape(s.phase)],['Validação de vantagem','Amostra insuficiente; execução real bloqueada']]);
 }
 
 function renderOperationalAudit(a){
