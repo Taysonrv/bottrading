@@ -307,3 +307,9 @@ assert.match(element('upgrade-package-status').textContent,/sem ativação autom
 assert.match(element('upgrade-package-costs').innerHTML,/Viável sob hipóteses/);
 assert.ok(!element('upgrade-package-checks').innerHTML.includes('<active>'));
 console.log('OK: readiness and mechanical costs never become trading signals or automatic authorization.');
+ctx.renderResearchDesk({});assert.match(element('research-desk-state').textContent,/ainda não executado/);
+ctx.renderResearchDesk({scope:'test',mode:'REPLAY_KNOWN_DATA',updated_ms:Date.now(),brief:'<script>reference only</script>',evaluations:[{title:'<untrusted>',status:'REJECTED',metrics:{net_return:-.09,closed_trades:41},checks:[{check:'UNTOUCHED_OOS_EVIDENCE',passed:false}]}]});
+assert.ok(!element('research-desk-table').innerHTML.includes('<untrusted>'));
+assert.match(element('research-desk-state').textContent,/Nenhuma estratégia promovida/);
+assert.equal(element('research-desk-brief').textContent,'<script>reference only</script>');
+console.log('OK: integrated research preserves rejected evidence and renders brief as text only.');

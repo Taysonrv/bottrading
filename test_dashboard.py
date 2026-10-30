@@ -44,6 +44,16 @@ class DashboardTests(unittest.TestCase):
     def test_status_requires_authentication(self):
         self.assertEqual(self.request('GET', '/api/status')[0], 401)
 
+    def test_research_brief_requires_login_and_saved_evidence(self):
+        self.assertEqual(self.request('GET','/api/research-brief.md')[0],401)
+        headers=self.login()
+        self.assertEqual(self.request('GET','/api/research-brief.md',headers=headers)[0],404)
+        path=self.root/'reports/local/research-desk';path.mkdir(parents=True)
+        (path/'latest.json').write_text(json.dumps({'brief':'Sem promoção.'}),encoding='utf-8')
+        code,response,body=self.request('GET','/api/research-brief.md',headers=headers)
+        self.assertEqual(code,200);self.assertIn('text/markdown',response['Content-Type'])
+        self.assertEqual(body.decode(),'Sem promoção.')
+
     def test_complete_export_auth_kind_and_failure(self):
         self.assertEqual(self.request('GET','/api/export.csv?kind=fills')[0],401)
         headers=self.login()
