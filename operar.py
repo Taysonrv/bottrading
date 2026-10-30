@@ -101,7 +101,7 @@ def main():
     def status(phase):
         nonlocal status_warning
         saved=persist_status(folder/'system-run.json',dict(mode='PAPER',phase=phase,reason=reason,updated_ms=int(time.time()*1000),
-             started_ms=int(started*1000),engine=args.engine,real_orders=0,components=[dict(name=n,pid=p.pid,exit_code=p.poll()) for n,p in children]))
+             started_ms=int(started*1000),engine=args.engine,real_orders=0,recovery_attempts=dict(recovery.attempts),components=[dict(name=n,pid=p.pid,exit_code=p.poll()) for n,p in children]))
         if not saved and not status_warning:
             journal('STATUS_REPORT_UNAVAILABLE',reason='IO_ERROR')
             print('Relatório do supervisor indisponível; motor preservado. Dados poderão aparecer antigos.',flush=True)
