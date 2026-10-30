@@ -27,7 +27,7 @@ class Portfolio:
         self.root=Path(root)
         self.path=self.root/'reports/local/portfolio/paper.sqlite'
         self.identity=digest({name:hashlib.sha256((Path(__file__).parent/name).read_text(encoding='utf-8-sig').encode('utf-8')).hexdigest()
-                              for name in ('portfolio12.py','portfolio12_run.py','spot_engine/selection.py','spot_engine/strategy.py','spot_engine/config.py','spot_engine/scanner.py','spot_engine/risk.py','spot_engine/execution.py','spot_engine/main.py','spot_engine/data.py')})
+                              for name in ('portfolio12.py','portfolio12_run.py','decision_trace.py','spot_engine/selection.py','spot_engine/strategy.py','spot_engine/config.py','spot_engine/scanner.py','spot_engine/risk.py','spot_engine/execution.py','spot_engine/main.py','spot_engine/data.py')})
 
     def stopped(self):
         return (self.root/'STOP').exists() or (self.path.parent/'STOP').exists()

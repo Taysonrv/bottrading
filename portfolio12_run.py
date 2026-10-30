@@ -12,6 +12,7 @@ from spot_engine.main import single_runner, save, normalized_rules, parse_book
 from portfolio12 import Portfolio, SYMBOLS
 from spot_engine.scanner import scan as base_scan
 from spot_engine.selection import preview, choose
+from decision_trace import record
 
 ROOT=Path(__file__).resolve().parent
 
@@ -20,6 +21,15 @@ class Session:
     def __init__(self,root,client):
         self.root=Path(root);self.client=client;self.broker=Portfolio(root)
         self.folder=self.broker.path.parent;self.last_scan=0;self.report={};self.last_bid=None
+        self.audit_health='OK'
+
+    def trace(self,phase,key,now,row,**fields):
+        try:
+            record(self.root,self.broker.identity,phase,key,now,row,**fields)
+            return True
+        except (OSError,ValueError,TypeError):
+            self.audit_health='DEGRADED'
+            return False
 
     def book(self,symbol):
         rules=normalized_rules(retry(lambda:self.client.fetch_symbol_info(symbol)),symbol,int(retry(self.client.fetch_time)))
@@ -33,6 +43,9 @@ class Session:
         if now-self.last_scan>=60000:
             self.report=base_scan(self.client,now,'15m',symbols=SYMBOLS);self.last_scan=now
             save(self.folder/'radar.json',self.report)
+            for row in self.report.get('pairs',[]):
+                if row.get('status')=='OK':
+                    self.trace('SIGNAL',str(row.get('symbol'))+'_'+str(row.get('candle_close_ms')),now,row)
         s=self.broker.snapshot();holding=s['position'] or s['pending'];reason='WAITING_SIGNAL'
         if holding:
             symbol=holding['symbol'];rules,(bid,ask,bq,aq),now=self.book(symbol)
@@ -56,7 +69,15 @@ class Session:
                 # Re-read the chosen book immediately before the transactional
                 # reservation; another symbol never receives independent cash.
                 rules,(bid,ask,_,_),actual=self.book(selected)
-                reason=self.broker.reserve(key,row,rules,bid,ask,actual,actual)['reason'];self.last_bid=bid
+                quote=dict(bid=str(bid),ask=str(ask),received_ms=actual,
+                    min_notional=str(rules.min_notional),qty_step=str(rules.qty_step),price_tick=str(rules.price_tick),
+                    cash_before=s['cash'],halt_before=s['halt'],candidate=candidates[[p['symbol'] for p in candidates].index(selected)])
+                if not self.trace('ENTRY_INTENT',key,actual,row,quote=quote):
+                    reason='AUDIT_ENTRY_BLOCKED'
+                else:
+                    order=self.broker.reserve(key,row,rules,bid,ask,actual,actual)
+                    reason=order['reason'];self.last_bid=bid
+                    self.trace('RESERVATION',key,actual,row,quote=quote,outcome=order)
         return self.publish('RUNNING',reason,plan)
 
     def publish(self,phase,reason,plan):
@@ -68,7 +89,7 @@ class Session:
         report=dict(mode='PAPER',phase=phase,reason=reason,updated_ms=now,end_ms=plan['end_ms'],
                     symbols=list(SYMBOLS),timeframe='15m',initial_capital='20',cash=s['cash'],equity=equity,
                     position=pos,pending=s['pending'],fees=s['fees'],realized=s['realized'],halt=s['halt'],
-                    orders=list(s['orders'].values())[-100:],fills=s['fills'][-100:],real_orders=0,
+                    orders=list(s['orders'].values())[-100:],fills=s['fills'][-100:],real_orders=0,decision_audit=self.audit_health,
                     note='Independent shared-wallet experiment; do not sum with EMA. Synthetic stops require a running process.')
         save(self.folder/'status.json',report)
         return report

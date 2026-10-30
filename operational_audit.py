@@ -7,6 +7,7 @@ import time
 from portfolio_alerts import ledger
 from spot_engine.risk import decimal_policy
 from system_status import read
+from decision_trace import lookup
 
 
 def recent_events(path):
@@ -40,6 +41,7 @@ def load(root,now_ms=None):
     events=recent_events(folder/'supervisor-events.jsonl')
     gaps=[r for r in events if r.get('kind')=='PREVIOUS_RUN_WITHOUT_SHUTDOWN_RECORD']
     result=dict(state=state,updated_ms=now,controller_age_seconds=ca,engine_age_seconds=ea,
+        entry_audit_health=status.get('decision_audit','NOT_INSTRUMENTED'),
         external_guard=read(folder/'external-guard.json'),
         radar_age_seconds=ra,execution_reason=status.get('reason'),deadline_ms=end,
         last_unexplained_gap=gaps[-1] if gaps else None,recent_events=events,
@@ -52,12 +54,17 @@ def load(root,now_ms=None):
     for f in s['fills']:
         if f['side']=='BUY':position=f
         elif position:
+            evidence=lookup(root,s['identity'],'ENTRY_INTENT',position.get('order')) if s.get('identity') and position.get('order') else None
+            if evidence and not (type(evidence.get('recorded_ms')) is int and
+                0<=evidence['recorded_ms']<=position['time_ms'] and evidence.get('signal',{}).get('symbol')==position['symbol']):
+                evidence=None
             cost=D(position['quantity'])*D(position['price'])+D(position['fee'])
             net=D(f['quantity'])*D(f['price'])-D(f['fee'])-cost
             trades.append(dict(symbol=f['symbol'],entry_ms=position['time_ms'],exit_ms=f['time_ms'],
                 entry=position['price'],exit=f['price'],quantity=f['quantity'],
                 fees=str(D(position['fee'])+D(f['fee'])),net_pnl=str(net),reason=f.get('reason') or 'NOT_RECORDED',
-                entry_indicators='NOT_RECORDED_AT_ORDER_TIME'))
+                entry_indicators='RECORDED_BEFORE_RESERVATION' if evidence else 'NOT_RECORDED_AT_ORDER_TIME',
+                entry_snapshot=evidence['signal'] if evidence else None))
             position=None
     evaluations=radar.get('selection',{}).get('previews',[])
     for row in radar.get('pairs',[]):

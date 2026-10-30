@@ -297,3 +297,7 @@ assert.match(element('session-performance-report').innerHTML,/Tempo desconhecido
 assert.match(element('session-performance-report').innerHTML,/-0[,.]127135/);
 assert.match(element('session-performance-report').innerHTML,/Amostra insuficiente/);
 console.log('OK: complete session performance keeps unknown coverage and insufficient evidence explicit.');
+ctx.renderOperationalAudit({state:'RECENT_REPORTS',ledger_available:true,trades:[{symbol:'LINK/USDT',reason:'TAKE_PROFIT',fees:'0.01',net_pnl:'0.1',entry_snapshot:{candle_close_ms:1000,close:100,ema_fast:99,ema_slow:98,ema_trend:97,atr_fraction:.01}}]});
+assert.match(element('operational-audit-trades').innerHTML,/Sinal registrado antes da reserva/);
+assert.match(element('operational-audit-trades').innerHTML,/EMA20/);
+console.log('OK: historical entry evidence is displayed only when actually recorded.');
