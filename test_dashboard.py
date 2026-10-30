@@ -44,6 +44,14 @@ class DashboardTests(unittest.TestCase):
     def test_status_requires_authentication(self):
         self.assertEqual(self.request('GET', '/api/status')[0], 401)
 
+    def test_macro_export_requires_login_and_saved_snapshot(self):
+        self.assertEqual(self.request('GET','/api/macro-scout.json')[0],401)
+        headers=self.login();self.assertEqual(self.request('GET','/api/macro-scout.json',headers=headers)[0],404)
+        path=self.root/'reports/local/macro-scout';path.mkdir(parents=True)
+        (path/'latest.json').write_text(json.dumps({'status':'PARTIAL','execution_authorized':False}),encoding='utf-8')
+        code,response,body=self.request('GET','/api/macro-scout.json',headers=headers)
+        self.assertEqual(code,200);self.assertFalse(json.loads(body)['execution_authorized'])
+
     def test_research_brief_requires_login_and_saved_evidence(self):
         self.assertEqual(self.request('GET','/api/research-brief.md')[0],401)
         headers=self.login()

@@ -5,7 +5,7 @@
   "paper_capital_usdt": "20",
   "max_trade_risk": "0.01",
   "current_data_status": "Previously inspected historical sample; all imported hypotheses remain exploratory",
-  "scout": "Import fixed allowlisted result files with hash and timestamp. No X/news/13F ingestion yet.",
+  "scout": "Import fixed allowlisted research files; optionally collect timestamped official Fed/ECB RSS snapshots. No X or13F ingestion.",
   "quant": "Optionally replay exactly two frozen hourly hypotheses; evaluate three existing evidence sets with explicit failure gates",
   "builder": "Do not promote or generate a winning deployment when independent evidence is absent",
   "scoring": "Do not invent 1-5 OOS scores for in-sample or previously inspected data. Score remains null.",

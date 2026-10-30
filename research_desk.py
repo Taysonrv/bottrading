@@ -73,10 +73,15 @@ def evaluate_saved(key,title,report):
 def brief(report):
     lines=['# Resumo da pesquisa — PAPER / sem promoção',
         'Gerado UTC: '+report['generated_utc'],
-        'Fontes: evidências salvas e histórico público já inspecionado; sem coleta de notícias ou X nesta rotina.',
+        'Fontes históricas: evidências salvas e histórico público já inspecionado; sem X nesta rotina.',
         'Nenhum preço ou contexto antigo é apresentado como mercado ao vivo.',
         'Estratégias aprovadas: 0. Ranking de vencedoras: indisponível.',
         'Score fora da amostra: não calculado sem evidência independente.','']
+    macro=report.get('macro_context',{})
+    lines+=['## Contexto macro oficial',
+        'Estado da coleta: '+str(macro.get('status','NOT_COLLECTED')),
+        'Publicações verificadas no recorte salvo: '+str(macro.get('total_verified_items','UNKNOWN')),
+        'Essa referência não é sinal de trading, sentimento de X ou calendário de eventos futuros.','']
     for item in report['evaluations']:
         lines+=['## '+item['title'], 'Estado: '+item['status'],
             'Métricas da amostra: '+json.dumps(item['metrics'],ensure_ascii=False,allow_nan=False),
@@ -89,11 +94,11 @@ def brief(report):
         '## Próximo passo',
         'Registrar nova hipótese e protocolo antes de olhar os resultados em dados futuros separados.',
         'Não gerar ou ativar um robô vencedor quando nenhuma hipótese sobreviveu.',
-        'Sem agenda automática, conta conectada, IA paga, envio externo ou alteração de carteira.']
+        'Sem agenda automática, conta conectada, IA paga, envio de mensagens ou alteração de carteira.']
     return '\n'.join(lines)+'\n'
 
 
-def run(root,csv_path=None):
+def run(root,csv_path=None,collect_macro=False):
     root=Path(root);run_id=uuid.uuid4().hex;folder=root/'reports/local/research-desk'/run_id
     folder.mkdir(parents=True,exist_ok=False)
     plan=json.loads((ROOT/'experiments/research_desk_plan.json').read_text(encoding='utf-8'))
@@ -104,10 +109,14 @@ def run(root,csv_path=None):
         provenance.append(dict(id=key,file=name,sha256=hashlib.sha256(raw).hexdigest(),evidence_updated_ms=inputs[key].get('updated_ms'),timestamp_utc=inputs[key].get('timestamp_utc')))
     manifest=dict(run_id=run_id,started_ms=int(time.time()*1000),protocol=plan,
         mode='REPLAY_KNOWN_DATA' if csv_path else 'IMPORT_SAVED_EVIDENCE',inputs=provenance,
-        retrospective=True,new_strategy_variants=0,execution_authorized=False,
+        retrospective=True,new_strategy_variants=0,execution_authorized=False,collect_macro=collect_macro,
         source_hashes={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in
-            ('research_desk.py','experiments/research_desk_plan.json','single_exit_research.py','pullback_research.py','spot_engine/strategy.py','spot_engine/config.py','spot_engine/risk.py','spot_engine/data.py')})
+            ('research_desk.py','macro_scout.py','experiments/research_desk_plan.json','single_exit_research.py','pullback_research.py','spot_engine/strategy.py','spot_engine/config.py','spot_engine/risk.py','spot_engine/data.py')})
     save(folder/'manifest.json',manifest)  # Persist protocol before any replay.
+    if collect_macro:
+        from macro_scout import collect
+        collect(root)
+    macro=read(root/'reports/local/macro-scout/latest.json')
     replay_artifacts=[]
     if csv_path:
         raw=Path(csv_path).read_bytes();baseline=inputs['ema_single_exit']
@@ -127,6 +136,8 @@ def run(root,csv_path=None):
         generated_utc=datetime.fromtimestamp(now/1000,timezone.utc).isoformat(),mode=manifest['mode'],
         evaluations=evaluations,approved_strategies=[],winner=None,builder_status='BLOCKED_NO_VALIDATED_STRATEGY',
         source_provenance=provenance,replay_artifacts=replay_artifacts,source_hashes=manifest['source_hashes'],paper_session=performance(root,now),
+        macro_context=dict(status=macro.get('status','NOT_COLLECTED'),as_of_ms=macro.get('as_of_ms'),run_id=macro.get('run_id'),
+            total_verified_items=macro.get('total_verified_items'),sources=macro.get('sources',[]),used_as_signal=False),
         market_context=dict(saved_radar_updated_ms=read(root/'reports/local/portfolio/radar.json').get('updated_ms'),
                             live_market_claim=False),
         scheduled=False,external_messages_sent=0,paid_model_calls=0,execution_authorized=False,approved=False)
@@ -139,7 +150,8 @@ def run(root,csv_path=None):
 def main():
     p=argparse.ArgumentParser(description='Fluxo integrado de evidência, avaliação e resumo; sem trading ou agenda.')
     p.add_argument('--data-dir',type=Path,required=True);p.add_argument('--replay-csv',type=Path)
-    args=p.parse_args();report=run(args.data_dir,args.replay_csv)
+    p.add_argument('--collect-macro',action='store_true',help='Consulta somente três RSS oficiais; não usa notícias como sinais.')
+    args=p.parse_args();report=run(args.data_dir,args.replay_csv,args.collect_macro)
     print(json.dumps(dict(run_id=report['run_id'],mode=report['mode'],evaluated=len(report['evaluations']),approved=0,builder=report['builder_status']),ensure_ascii=False))
 
 
