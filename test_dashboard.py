@@ -44,6 +44,18 @@ class DashboardTests(unittest.TestCase):
     def test_status_requires_authentication(self):
         self.assertEqual(self.request('GET', '/api/status')[0], 401)
 
+    def test_complete_export_auth_kind_and_failure(self):
+        self.assertEqual(self.request('GET','/api/export.csv?kind=fills')[0],401)
+        headers=self.login()
+        with patch.object(dashboard.paper_export,'export',return_value=b'header\r\n') as call:
+            self.assertEqual(self.request('GET','/api/export.csv?kind=secret',headers=headers)[0],400)
+            call.assert_not_called()
+            code,response,body=self.request('GET','/api/export.csv?kind=fills',headers=headers)
+            self.assertEqual(code,200);self.assertIn('text/csv',response['Content-Type'])
+            self.assertEqual(body,b'header\r\n')
+        with patch.object(dashboard.paper_export,'export',side_effect=ValueError('bad ledger')):
+            self.assertEqual(self.request('GET','/api/export.csv?kind=cycles',headers=headers)[0],503)
+
     def test_candle_endpoint_requires_authentication_and_allowed_pair(self):
         self.assertEqual(self.request('GET','/api/lab-market?symbol=BTCUSDT')[0],401)
         with patch.object(dashboard.market_view,'load') as fetch:

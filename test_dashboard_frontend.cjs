@@ -301,3 +301,9 @@ ctx.renderOperationalAudit({state:'RECENT_REPORTS',ledger_available:true,trades:
 assert.match(element('operational-audit-trades').innerHTML,/Sinal registrado antes da reserva/);
 assert.match(element('operational-audit-trades').innerHTML,/EMA20/);
 console.log('OK: historical entry evidence is displayed only when actually recorded.');
+ctx.renderUpgradePackage({});assert.match(element('upgrade-package-status').textContent,/ainda não registrado/);
+ctx.renderUpgradePackage({upgrade_readiness:{scope:'test',updated_ms:Date.now(),ready_for_operator_review:false,checks:[{check:'<active>',passed:false,reason:'Não abrir em paralelo'}]},paper12_feasibility:{updated_ms:Date.now(),pairs:[{symbol:'LINK/USDT',mechanically_feasible:true,net_rr:'1.5',spread_fraction:'0.001'}]}});
+assert.match(element('upgrade-package-status').textContent,/sem ativação automática/);
+assert.match(element('upgrade-package-costs').innerHTML,/Viável sob hipóteses/);
+assert.ok(!element('upgrade-package-checks').innerHTML.includes('<active>'));
+console.log('OK: readiness and mechanical costs never become trading signals or automatic authorization.');

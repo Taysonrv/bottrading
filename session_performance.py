@@ -29,6 +29,23 @@ def coverage(plan,health,now_ms):
     # conservatively remove all outside-window time from each known category.
     outside=max(0,start/1000-a)+max(0,b-until/1000)
     recent=max(0,values[0]-outside);stopped=max(0,values[1]-outside)
+    # A complete transition history can bound outside-window RECENT/STOPPED
+    # separately. Otherwise, increasing post-deadline idle time would keep
+    # eroding historical coverage even when every new sample says STOPPED.
+    transitions=health.get('transitions',[])
+    if (isinstance(transitions,list) and transitions and
+        all(isinstance(t,dict) and type(t.get('time')) in (int,float) and math.isfinite(t['time'])
+            and a<=t['time']<=b and t.get('state') in ('RECENT','STOPPED','UNKNOWN') for t in transitions)
+        and abs(transitions[0]['time']-a)<.001
+        and all(x['time']<=y['time'] for x,y in zip(transitions,transitions[1:]))):
+        bounds=dict(RECENT=0.,STOPPED=0.);totals=dict(RECENT=0.,STOPPED=0.)
+        for i,t in enumerate(transitions):
+            left=t['time'];right=transitions[i+1]['time'] if i+1<len(transitions) else b
+            if t['state'] not in bounds:continue
+            totals[t['state']]+=right-left
+            bounds[t['state']]+=max(0,min(right,start/1000)-left)+max(0,right-max(left,until/1000))
+        if values[0]<=totals['RECENT']+1 and values[1]<=totals['STOPPED']+1:
+            recent=max(0,values[0]-bounds['RECENT']);stopped=max(0,values[1]-bounds['STOPPED'])
     result.update(recent_seconds=recent,stopped_seconds=stopped,
         unknown_seconds=max(0,elapsed-recent-stopped),
         sampled_recent_fraction=recent/elapsed if elapsed else None,reason='SAMPLED_CONSERVATIVE_NOT_CONTINUOUS_UPTIME')

@@ -22,6 +22,17 @@ class SessionPerformanceTests(TestCase):
         self.assertEqual(c['recent_seconds'],88)
         self.assertEqual(c['unknown_seconds'],12)
 
+    def test_post_deadline_stopped_samples_do_not_erode_historical_coverage(self):
+        h=dict(started=98,updated=300,recent_seconds=90,stopped_seconds=80,unknown_seconds=32,
+            transitions=[dict(time=98,state='UNKNOWN'),dict(time=105,state='RECENT'),dict(time=205,state='STOPPED')])
+        plan=dict(start_ms=100000,end_ms=200000)
+        a=coverage(plan,h,300000)
+        b=coverage(plan,dict(h,updated=400,stopped_seconds=180),400000)
+        self.assertEqual(a['recent_seconds'],85)
+        self.assertEqual(a['stopped_seconds'],0)
+        self.assertEqual(a['recent_seconds'],b['recent_seconds'])
+        self.assertEqual(a['unknown_seconds'],b['unknown_seconds'])
+
     def test_ledger_result_includes_fees_and_does_not_invent_sharpe(self):
         with TemporaryDirectory() as tmp:
             folder=Path(tmp)/'reports/local/portfolio';folder.mkdir(parents=True)

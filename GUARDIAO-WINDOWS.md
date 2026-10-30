@@ -1,6 +1,6 @@
 # Guardião externo no Windows
 
-`session_guard.py` lê plano e relatórios da sessão existente. Não cria sessão, carteira ou ordem e nunca inicia o motor de trading. Se o supervisor perdeu confirmação e a porta está fechada, pode iniciar apenas o painel, até três vezes. Motor sem relatório recente exige revisão. Porta aberta não prova saúde HTTP: o diagnóstico do painel continua necessário.
+`session_guard.py` lê plano e relatórios da sessão existente. Não cria sessão, carteira ou ordem e nunca inicia o motor de trading. Com porta fechada, recupera somente o painel se o supervisor perdeu confirmação ou se a interface ficou ausente por120s mesmo com supervisor vivo, até três tentativas externas. Isso cobre também o esgotamento da recuperação interna. Uma solicitação local recente `reports/local/panel-refresh.json` com `requested_ms` permite a atualização planejada sem aguardar120s; é consumida uma vez e não ignora STOP/prazo. Motor sem relatório recente exige revisão. Porta aberta não prova saúde HTTP: o diagnóstico do painel continua necessário.
 
 ```powershell
 .\install-session-guard.ps1 -DataDir CAMINHO_DA_SESSAO -Port 8769
