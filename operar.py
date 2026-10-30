@@ -115,7 +115,7 @@ def main():
         except (OSError,ValueError):print('Operational journal unavailable; execution unchanged.',flush=True)
     def launch(name,command,cwd):
         log=stack.enter_context((folder/('system-'+name+'.log')).open('a',encoding='utf-8'))
-        flags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name=='nt' else 0
+        flags=(subprocess.CREATE_NEW_PROCESS_GROUP|subprocess.CREATE_NO_WINDOW) if os.name=='nt' else 0
         child=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=flags)
         journal('COMPONENT_STARTED',component=name,pid=child.pid)
         return child

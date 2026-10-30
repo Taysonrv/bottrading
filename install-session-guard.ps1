@@ -10,7 +10,7 @@ $plan=Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
 $deadline=[DateTimeOffset]::FromUnixTimeMilliseconds([long]$plan.end_ms)
 if($deadline -le [DateTimeOffset]::UtcNow){throw 'Sessão encerrada. O guardião não estende o prazo.'}
 if($Port -lt 1024 -or $Port -gt 65535){throw 'Porta inválida.'}
-$python=Join-Path $sourceRoot '.venv-spot\Scripts\python.exe'
+$python=Join-Path $sourceRoot '.venv-spot\Scripts\pythonw.exe'
 if(-not(Test-Path -LiteralPath $python)){throw 'Ambiente .venv-spot não encontrado.'}
 $taskName='SpotLab-Guard-'+(Split-Path $resolvedData -Leaf)
 if(Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue){throw 'Tarefa já existe; não sobrescrita.'}
